@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.socket.io; connect-src 'self' ws://127.0.0.1:* wss://127.0.0.1:* http://127.0.0.1:* https://127.0.0.1:* http://localhost:* https://localhost:* https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com;">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transmisiones Automáticas Frias </title>
+    <link rel="stylesheet" href="./styles/styles.css">
+    <link rel="stylesheet" href="node_modules/font-awesome/css/font-awesome.min.css">
+</head>
+<body>
+    <!-- Barra de navegacion -->
+    <nav class="navbar">
+        <ul>
+            <li class="submenu">
+                <a href="#" class="protected" id="opcionesMenu">Opciones</a>
+                <ul class="dropdown">
+                    <li><a href="#" id="crearSucursalBtn" class="protected">Crear Sucursal</a></li>
+                    <li><a href="#" id="crearUsuarioBtn" class="protected">Crear Usuario</a></li>
+                    <li><a href="#" id="crearAsesorBtn" class="protected">Crear Asesor</a></li>
+                </ul>
+            </li>
+            <li class="menu__item"><a href="#" id="loginBtn">Iniciar Sesion</a></li>
+            <li class="submenu">
+                <a href="#" class="protected" id="clientesMenu">Clientes</a>
+                <ul class="dropdown">
+                    <li><a href="#" id="nuevoClienteBtn" class="protected">Registrar Cliente</a></li>
+                    <li><a href="#" id="nuevoVehiculoBtn" class="protected">Registrar Vehiculo</a></li>
+                </ul>
+            </li>
+            <li class="menu__item"><a href="#" class="protected" id="cotizacionesMenu">Cotizaciones</a></li>
+            <li class="submenu">
+                <a href="#" class="protected" id="recepcionMenu">Recepción</a>
+                <ul class="dropdown">
+                    <li><a href="#" id="nuevoIngresoBtn" class="protected">Nuevo Ingreso</a></li>
+                    <li><a href="#" id="diagnosticoBtn" class="protected">Diagnósticos</a></li>
+                </ul>
+            </li>
+            <li class="menu__item"><a href="#" class="protected" id="entregaMenu">Entrega</a></li>
+            <li class="menu__item"><a href="#" class="protected" id="catalogoMenu">Catalogo</a></li>
+            <li class="menu__item logout-btn"><a href="#" id="logoutBtn">Cerrar Sesion</a></li>
+        </ul>
+    </nav>
+<main>
+    <aside class="sidebar">
+        <h3>Folios del Día</h3>
+        <ul id="listaFolios"></ul>
+    </aside>
+    <div class="logo-container">
+        <img src="./img/TF_MENU2.png">
+    </div>
+</main>
+<footer id="footer">
+    <p>Usuario: <span id="loggedInUser">No logeado</span></p>
+</footer>
+<div id="loginModal" class="modal">
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <h2>Iniciar Sesión</h2>
+        <form id="loginForm">
+            <label for="username">Nombre de Usuario:</label>
+            <input type="text" id="username" name="username" required>
+            <label for="password">Contraseña:</label>
+            <input type="password" id="password" name="password" required>
+            <button type="submit">Iniciar Sesión</button>
+        </form>
+    </div>
+</div>
+    <script src="script.js"></script>
+    <script src="foliosdeldia.js"></script>
+    <script src="node_modules/socket.io-client/dist/socket.io.min.js"></script>    
+</body>
+</html>

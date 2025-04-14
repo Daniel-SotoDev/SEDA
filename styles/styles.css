@@ -1,0 +1,301 @@
+/* Estilos generales */
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background: linear-gradient(135deg, #1e3c72, #2a5298); /* Fondo degradado azul metálico */
+    color: #fff;
+}
+
+/* Barra de navegación */
+.navbar {
+    background: rgba(0, 51, 102, 0.9); /* Azul oscuro con transparencia */
+    padding: 10px 0;
+    display: flex;
+    justify-content: center;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.navbar ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    align-items: center;
+}
+
+.navbar ul li {
+    position: relative;
+    padding: 0 15px;
+}
+
+.navbar ul li a {
+    color: #fff;
+    text-decoration: none;
+    padding: 10px 15px;
+    display: inline-block;
+    transition: background 0.3s ease, color 0.3s ease;
+}
+
+.navbar ul li a:hover {
+    background: rgba(255, 255, 255, 0.1); /* Efecto hover suave */
+    border-radius: 5px;
+}
+
+/* Submenú */
+.submenu .dropdown {
+    display: none;
+    position: absolute;
+    background: rgba(141, 139, 139, 0.9); /* Fondo gris con transparencia */
+    top: 100%;
+    left: 0;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+    z-index: 1000;
+}
+
+.submenu:hover .dropdown {
+    display: block;
+}
+
+.dropdown li {
+    padding: 10px;
+}
+
+.dropdown li a {
+    color: #fff;
+    padding: 8px 12px;
+    display: block;
+}
+
+.dropdown li a:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+}
+
+/* Botón de cerrar sesión */
+.logout-btn {
+    margin-left: auto;
+    background: #dc3545; /* Rojo para el botón de cerrar sesión */
+    padding: 10px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+.logout-btn:hover {
+    background: #a71d2a; /* Rojo más oscuro al hacer hover */
+}
+
+/* Contenedor principal */
+main {
+    display: flex;
+    justify-content: space-between;
+    padding: 20px;
+}
+
+/* Sidebar */
+.sidebar {
+    width: 200px;
+    background: rgba(255, 255, 255, 0.1); /* Fondo semitransparente */
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    margin-right: 20px;
+}
+
+.sidebar h3 {
+    margin-top: 0;
+    font-size: 1.2em;
+    color: #fff;
+    text-align: center;
+}
+
+#listaFolios {
+    list-style: none;
+    padding: 0;
+}
+
+#listaFolios li {
+    padding: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+#listaFolios li:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* Contenedor del logo */
+.logo-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex: 1;
+    height: calc(100vh - 120px); /* Ajusta la altura */
+}
+
+.logo-container img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+
+}
+
+/* Estilos para el apartado de folios del día */
+.folio-item {
+    font-weight: bold;
+}
+
+.copiar-btn {
+    margin-left: 10px;
+    padding: 5px 10px;
+    background-color: transparent;
+    border: none;
+    cursor: pointer;
+    color: #007bff;
+    font-size: 16px;
+    transition: color 0.3s ease;
+}
+
+.copiar-btn:hover {
+    color: #0056b3;
+}
+
+/* Estilos para enlaces deshabilitados */
+.disabled {
+    pointer-events: none;
+    opacity: 0.5;
+}
+/* Estilos para el footer */
+footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background-color: #1e3c72;
+    color: #fff;
+    text-align: center;
+    padding: 10px;
+    font-size: 14px;
+    box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.2);
+}
+
+/* Estilos para los enlaces protegidos */
+.disabled {
+    pointer-events: none;
+    opacity: 0.5;
+}
+/* Estilos para el modal */
+.modal {
+    display: none; /* Oculto por defecto */
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6); /* Fondo oscuro semi-transparente */
+    backdrop-filter: blur(5px); /* Efecto de desenfoque */
+}
+
+.modal-content {
+    background: linear-gradient(145deg, #1e3c72, #2a5298); /* Degradado azul metálico */
+    margin: 10% auto;
+    padding: 30px;
+    border: none;
+    width: 350px;
+    border-radius: 15px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+    color: #fff;
+    text-align: center;
+    position: relative;
+}
+
+/* Botón de cerrar (×) */
+.close {
+    color: #fff;
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: color 0.3s ease;
+}
+
+.close:hover {
+    color: #ff4d4d; /* Rojo al hacer hover */
+}
+
+/* Título del formulario */
+.modal-content h2 {
+    margin-bottom: 20px;
+    font-size: 24px;
+    font-weight: bold;
+    color: #fff;
+}
+
+/* Estilos para el formulario */
+#loginForm {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+#loginForm label {
+    font-size: 14px;
+    font-weight: bold;
+    color: #fff;
+    text-align: left;
+}
+
+#loginForm input {
+    padding: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.3s ease, background-color 0.3s ease;
+}
+
+#loginForm input:focus {
+    border-color: #007bff; /* Azul brillante al enfocar */
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+#loginForm input::placeholder {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* Estilos para el botón de enviar */
+#loginForm button {
+    padding: 12px;
+    background-color: #007bff; /* Azul brillante */
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+#loginForm button:hover {
+    background-color: #0056b3; /* Azul más oscuro al hacer hover */
+    transform: translateY(-2px); /* Efecto de elevación */
+}
+
+#loginForm button:active {
+    transform: translateY(0); /* Restablece la posición al hacer clic */
+}
+
+/* Estilos para mensajes de error */
+#error-msg {
+    color: #ff4d4d; /* Rojo para mensajes de error */
+    font-size: 14px;
+    margin-top: 10px;
+}

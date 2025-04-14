@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registrar Cliente</title>
+    <link rel="stylesheet" href="./styles/form.css">
+</head>
+<body>
+    <div class="modal">
+        <h2 class="main__title">Registro De Clientes</h2>
+        <button class="close-btn" id="closeModal">X</button>
+        <form id="clienteForm">
+            <h3 class="title__form">Datos del Cliente</h3>
+            <div class="row">
+                <div class="form__group">
+                    <label for="Nombre" class="label__form">Nombre</label>
+                    <input type="text" placeholder="Nombre" id="Nombre" name="Nombre" required>
+                </div>
+                <div class="form__group">
+                    <label for="Apellido" class="label__form">Apellido</label>
+                    <input type="text" placeholder="Apellido" id="Apellido" name="Apellido" required>
+                </div>
+                <div class="form__group">
+                    <label for="Domicilio" class="label__form">Dirección</label>
+                    <input type="text" placeholder="Domicilio" id="Domicilio" name="Domicilio" required>
+                </div>
+                <div class="form__group">
+                    <label for="Correo" class="label__form">Correo</label>
+                    <input type="email" placeholder="ejemplo@email.com" id="Correo" name="Correo">
+                </div>
+                <div class="form__group">
+                    <label for="Telefono" class="label__form">Teléfono</label>
+                    <input type="text" placeholder="(agregar varios separados por ' ; ')" id="Telefono" name="Telefono" required>
+                </div>
+                <div class="form__group">
+                    <label for="Tipo" class="label__form">Tipo</label>
+                    <input type="text" placeholder="Fijo, Celular" id="Tipo" name="Tipo" required>
+                </div>
+            </div>
+            <div class="button-container">
+                <button type="submit" class="register-btn">Registrar</button>
+            </div>
+        </form>
+    </div>
+    <script>
+        document.addEventListener("DOMContentLoaded", async () => {
+            const form = document.getElementById("clienteForm");
+            const closeModal = document.getElementById("closeModal");
+
+            if (closeModal) {
+            closeModal.addEventListener("click", function () {
+            window.close();
+        });
+            }
+
+            // Obtener el puerto dinámico desde config.json
+            async function esperarConfigJson(reintentos = 5, intervalo = 1000) {
+                for (let i = 0; i < reintentos; i++) {
+                    try {
+                        const response = await fetch(window.location.origin + "/config.json");
+                        if (response.ok) return await response.json();
+                    } catch (error) {
+                        console.warn(`Intento ${i + 1} de ${reintentos}: Esperando config.json...`);
+                    }
+                    await new Promise(resolve => setTimeout(resolve, intervalo));
+                }
+                throw new Error("No se pudo obtener config.json");
+            }
+
+            async function obtenerURLServidor() {
+                try {
+                    const config = await esperarConfigJson();
+                    return `http://127.0.0.1:${config.puerto}`;
+                } catch (error) {
+                    console.error("Error obteniendo la URL del servidor:", error);
+                    return "http://127.0.0.1:4000"; // Fallback
+                }
+            }
+
+            form.addEventListener("submit", async (event) => {
+                event.preventDefault();
+
+                const Nombre = document.getElementById("Nombre").value.trim();
+                const Apellido = document.getElementById("Apellido").value.trim();
+                const Domicilio = document.getElementById("Domicilio").value.trim();
+                const Correo = document.getElementById("Correo").value.trim();
+                const Telefonos = document.getElementById("Telefono").value.trim();
+                const Tipo = document.getElementById("Tipo").value.trim();
+
+                if (!Nombre || !Apellido || !Domicilio || !Telefonos || !Tipo) {
+                    alert("Por favor, completa todos los campos obligatorios.");
+                    return;
+                }
+
+                const clienteData = { Nombre, Apellido, Domicilio, Correo, Telefonos: Telefonos.split(";"), Tipo };
+
+                try {
+                    const urlServidor = await obtenerURLServidor();
+                    const response = await fetch(`${urlServidor}/registrar-cliente`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(clienteData),
+                    });
+
+                    if (!response.ok) throw new Error("Error en la respuesta del servidor");
+
+                    const data = await response.json();
+                    alert(data.message || "Cliente registrado correctamente");
+
+                    form.reset();
+                } catch (error) {
+                    console.error("Error al registrar cliente:", error);
+                    alert("Error al registrar cliente");
+                }
+            });
+        });
+    </script>
+</body>
+</html>

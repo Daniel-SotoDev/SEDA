@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nuevo Ingreso</title>
+    <link rel="stylesheet" href="./styles/nuevoIngreso.css">
+</head>
+<body>
+    <div class="modal">
+        <h2 class="main__title">Nuevo Ingreso</h2>
+        <button class="close-btn" id="closeModal">X</button>
+        <form id="ingresoForm" enctype="multipart/form-data">
+            <div class="date">
+                <label for="FechaIngreso">Fecha:</label>
+                <input type="date" id="FechaIngreso" name="FechaIngreso">
+            </div>
+            <div class="label__form">
+                <label for="Folio">Folio:</label>
+                <input type="text" id="Folio" name="Folio" readonly class="folio_item">
+            </div>
+            <h3 class="title__form">Asesor</h3>
+            <div class="row">
+                <div>
+                    <label for="IDAsesor" class="label__form"></label>
+                    <select id="IDAsesor" name="IDAsesor" required>
+                        <option value="">Seleccione un asesor</option>
+                        <!-- Opciones se llenarán dinámicamente -->
+                    </select>
+                </div>
+            </div>
+            <h3 class="title__form">Documentos Relacionados</h3>
+            <div class="row">
+                <div class="adjust">
+                    <label for="buscarCotizacion"></label>
+                    <input type="text" id="buscarCotizacion" placeholder="Escribe folio o nombre...">
+                    <button type="button" id="btnBuscarCotizacion">Buscar</button>
+                </div>
+                <div id="resultadosCotizaciones" style="display:none;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Folio</th>
+                                <th>Cliente</th>
+                                <th>Vehículo</th>
+                                <th>Seleccionar</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaCotizaciones">
+                            <!-- Resultados dinámicos -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <h3 class="title__form">Cliente</h3>
+            <div class="row">
+                <div>
+                    <label for="IDCliente" class="label__form">Cliente</label>
+                    <input type="text" id="IDCliente" readonly>
+                    <input type="hidden" id="hiddenIDCliente" name="IDCliente">
+                </div>
+            </div>
+        <h3 class="title__form">Vehículo</h3>
+            <div class="row">
+                <div>
+                    <label for="IDVehiculo" class="label__form">Vehículo</label>
+                    <input type="text" id="IDVehiculo" readonly>
+                    <input type="hidden" id="hiddenIDVehiculo" name="IDVehiculo">
+        </div>
+            </div>
+
+            <!-- Campo oculto para IDCotizacion -->
+            <input type="hidden" id="IDCotizacion" name="IDCotizacion">
+            <h3 class="title__form">Piezas Cotizadas</h3>
+            <div class="row">
+                <table id="tablaPiezasCotizadas">
+                    <thead>
+                        <tr>
+                            <th>Pieza</th>
+                            <th>Cantidad</th>
+                            <th>Precio Unitario</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Datos dinámicos -->
+                    </tbody>
+                </table>
+            </div>
+            <h3 class="title__form">Imagen</h3>
+            <div class="row">
+                <input type="file" name="Fotos" id="Fotos">
+            </div>
+
+            <div class="button-container">
+                <button type="submit" class="register-btn">Registrar</button>
+            </div>
+        </form>
+    </div>
+
+    <script src="nuevoIngreso.js"></script>
+</body>
+</html>

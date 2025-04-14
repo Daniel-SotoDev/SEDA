@@ -1,0 +1,321 @@
+/* styles/nuevoIngreso.css */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #1a2a4a 0%, #2c3e50 100%);
+    color: #e0e0e0;
+    width: 900px;
+    height: 500px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+}
+
+.modal {
+    background: rgba(30, 58, 95, 0.85);
+    width: 850px;
+    height: 480px;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(5px);
+    border: 1px solid rgba(163, 208, 248, 0.2);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow-y: auto;
+}
+
+.main__title {
+    color: #A3D0F8;
+    text-align: center;
+    font-size: 1.8em;
+    margin-bottom: 15px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    letter-spacing: 1px;
+}
+
+#ingresoForm {
+    background: rgba(27, 42, 68, 0.6);
+    padding: 20px;
+    border-radius: 10px;
+    border: 1px solid rgba(163, 208, 248, 0.1);
+}
+
+.title__form {
+    color: #A3D0F8;
+    font-size: 1.2em;
+    font-weight: bold;
+    margin: 15px 0 8px;
+    border-bottom: 2px solid rgba(163, 208, 248, 0.3);
+    padding-bottom: 5px;
+    letter-spacing: 0.5px;
+}
+
+.row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.label__form {
+    color: #A3D0F8;
+    display: block;
+    font-weight: bold;
+    font-size: 0.9em;
+    margin-bottom: 6px;
+    margin-top: 10px;
+}
+
+.date {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    color: #A3D0F8;
+    font-weight: bold;
+    font-size: 0.9em;
+}
+
+input, select, textarea {
+    width: 50%;
+    padding: 8px 10px;
+    border: 1px solid rgba(163, 208, 248, 0.4);
+    background: rgba(10, 25, 47, 0.7);
+    border-radius: 5px;
+    font-size: 0.9em;
+    color: #e0e0e0;
+    transition: all 0.3s ease;
+}
+
+input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: #A3D0F8;
+    box-shadow: 0 0 0 2px rgba(163, 208, 248, 0.2);
+}
+
+input[type="date"] {
+    font-family: sans-serif;
+    padding: 7px;
+}
+.date{
+    width: 30%;
+}
+#Folio, .folio_item {
+    font-weight: bold;
+    background-color: rgba(68, 74, 80, 0.7);
+    border: 1px solid rgba(163, 208, 248, 0.4);
+    padding: 8px;
+    border-radius: 5px;
+    text-align: center;
+    font-size: 1em;
+    color: #A3D0F8;
+}
+.folio_item{
+    width: 25%;
+}
+#IDAsesor{
+    width: 35%;
+}
+.adjust{
+    display: flex;
+    width: 50%;
+    gap: 8px;
+}
+.close-btn {
+    background: #cf061a;
+    color: #f5f3f3;
+    border: none;
+    font-size: 14px;
+    font-weight: bold;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 15%;
+    cursor: pointer;
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.close-btn:hover {
+    background: #a71d2a;
+    transform: scale(1.05);
+}
+
+.register-btn {
+    background: linear-gradient(to right, #4A90E2, #5D9CE6);
+    color: #fff;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9em;
+    font-weight: bold;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    letter-spacing: 0.5px;
+}
+
+.register-btn:hover {
+    background: linear-gradient(to right, #3A80D2, #4D8CD6);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.button-container {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 20px;
+}
+
+/* Estilos para tablas */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+    background: rgba(20, 35, 60, 0.7);
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+th, td {
+    padding: 10px;
+    text-align: center;
+    border-bottom: 1px solid rgba(163, 208, 248, 0.2);
+}
+
+th {
+    background: rgba(30, 58, 95, 0.9);
+    color: #A3D0F8;
+    font-weight: bold;
+}
+
+tr:hover {
+    background: rgba(163, 208, 248, 0.1);
+}
+
+/* Botones de acción */
+.seleccionarCotizacion {
+    background: linear-gradient(to right, #51ca2c, #5fd63a);
+    color: #fff;
+    border: none;
+    padding: 6px 12px;
+    cursor: pointer;
+    border-radius: 5px;
+    font-weight: bold;
+    transition: all 0.3s ease;
+}
+
+.seleccionarCotizacion:hover {
+    background: linear-gradient(to right, #41ba1c, #4fc62a);
+    transform: scale(1.05);
+}
+
+/* Buscador */
+#buscarCotizacion {
+    width: 100%;
+    padding: 8px 12px;
+    border-radius: 5px;
+    border: 1px solid rgba(163, 208, 248, 0.4);
+    background: rgba(10, 25, 47, 0.7);
+    color: #e0e0e0;
+    font-size: 0.9em;
+}
+
+#btnBuscarCotizacion {
+    background: linear-gradient(to right, #4A90E2, #5D9CE6);
+    color: #fff;
+    padding: 8px 15px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9em;
+    font-weight: bold;
+    transition: all 0.3s ease;
+}
+
+#btnBuscarCotizacion:hover {
+    background: linear-gradient(to right, #3A80D2, #4D8CD6);
+}
+
+/* Estilos para el campo de archivo */
+input[type="file"] {
+    padding: 6px;
+    background: rgba(10, 25, 47, 0.7);
+    border: 1px dashed rgba(163, 208, 248, 0.4);
+    border-radius: 5px;
+}
+
+input[type="file"]::file-selector-button {
+    background: linear-gradient(to right, #4A90E2, #5D9CE6);
+    color: #fff;
+    padding: 6px 12px;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    margin-right: 10px;
+    transition: all 0.3s ease;
+}
+
+input[type="file"]::file-selector-button:hover {
+    background: linear-gradient(to right, #3A80D2, #4D8CD6);
+}
+
+/* Scrollbar personalizada */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(30, 58, 95, 0.3);
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(163, 208, 248, 0.5);
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(163, 208, 248, 0.7);
+}
+
+/* Efectos de transición */
+.modal {
+    animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+    body {
+        width: 100%;
+        height: auto;
+        padding: 20px;
+    }
+    
+    .modal {
+        width: 95%;
+        height: auto;
+        max-height: 90vh;
+    }
+    
+    .row {
+        grid-template-columns: 1fr;
+    }
+}

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Entrega de Vehículos</title>
+    <link rel="stylesheet" href="./styles/entrega.css">
+    <link rel="stylesheet" href="node_modules/font-awesome/css/font-awesome.min.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>Entrega de Vehículos</h2>
+            <button id="closeBtn" class="btn-close">X</button>
+        </div>
+        
+        <div class="search-section">
+            <div class="search-box">
+                <input type="text" id="searchFolio" placeholder="Buscar por folio, cliente o vehículo...">
+                <button id="searchBtn"><i class="fa fa-search"></i> Buscar</button>
+            </div>
+        </div>
+        
+        <div class="results-section">
+            <table id="resultsTable">
+                <thead>
+                    <tr>
+                        <th>Folio</th>
+                        <th>Cliente</th>
+                        <th>Vehículo</th>
+                        <th>Placas</th>
+                        <th>Marca</th>
+                        <th>Modelo</th>
+                        <th>Fecha Ingreso</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        
+        <div class="details-section">
+            <div class="form-group">
+                <label for="folio">Folio:</label>
+                <input type="text" id="folio" readonly>
+            </div>
+            
+            <div class="form-group">
+                <label for="fecha">Fecha Ingreso:</label>
+                <input type="text" id="fecha" readonly>
+            </div>
+            
+            <div class="form-group">
+                <label for="cliente">Cliente:</label>
+                <input type="text" id="cliente" readonly>
+            </div>
+            
+            <div class="form-group">
+                <label for="vehiculo">Vehículo:</label>
+                <input type="text" id="vehiculo" readonly>
+            </div>
+            
+            <div class="form-group">
+                <label for="placas">Placas:</label>
+                <input type="text" id="placas" readonly>
+            </div>
+            
+            <div class="form-group">
+                <label for="marca">Marca:</label>
+                <input type="text" id="marca" readonly>
+            </div>
+            
+            <div class="form-group">
+                <label for="modelo">Modelo:</label>
+                <input type="text" id="modelo" readonly>
+            </div>
+            
+            <div class="form-group">
+                <label for="linea">Línea:</label>
+                <input type="text" id="linea" readonly>
+            </div>
+            
+            <div class="form-group">
+                <label for="diagnostico">Diagnóstico:</label>
+                <textarea id="diagnostico" rows="3" readonly></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="total">Total:</label>
+                <input type="text" id="total" readonly>
+            </div>
+            
+            <div class="form-group">
+                <label for="estatus">Estatus:</label>
+                <select id="estatus">
+                    <option value="PENDIENTE">PENDIENTE</option>
+                    <option value="ENTREGADO">ENTREGADO</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>Piezas Utilizadas:</label>
+                <table id="piezasTable">
+                    <thead>
+                        <tr>
+                            <th>Pieza</th>
+                            <th>Cantidad</th>
+                            <th>Precio</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            
+            <div class="form-actions">
+                <button id="saveBtn" class="btn-primary">Guardar Entrega</button>
+                <button id="printBtn" class="btn-secondary">Imprimir Recibo</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="entrega.js"></script>
+</body>
+</html>

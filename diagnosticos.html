@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagnósticos</title>
+    <link rel="stylesheet" href="./styles/diagnostic.css">
+</head>
+<body>
+    <div class="modal">
+        <h2 class="main__title">Diagnósticos</h2>
+        <button class="close-btn" id="closeModal">X</button>
+        
+        <!-- Buscador de Folio -->
+        <div class="row">
+            <div class="search-container">
+                <label for="buscarFolio"></label>
+                <input type="text" id="buscarFolio" placeholder="Ingrese folio...">
+                <button type="button" id="btnBuscarFolio">Buscar</button>
+            </div>
+        </div>
+        
+        <div>
+            <table id="tablaFolios" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>Folio</th>
+                        <th>Cliente</th>
+                        <th>Vehículo</th>
+                        <th>Fecha</th>
+                        <th>Seleccionar</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Filas dinámicas -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Información del Cliente -->
+        <h3 class="title__form">Cliente</h3>
+        <div class="row">
+            <div class="search-container2">
+                <label for="nombreCliente"></label>
+                <input type="text" id="nombreCliente" readonly>
+                <input type="hidden" id="IDClienteHidden">
+            </div>
+        </div>
+
+        <!-- Información del Vehículo -->
+        <h3 class="title__form">Vehículo</h3>
+        <div class="row grid-detalles">
+            <div class="campo">
+                <label for="placas">Placas:</label>
+                <input type="text" id="placas" readonly>
+            </div>
+            <div class="campo">
+                <label for="marca">Marca:</label>
+                <input type="text" id="marca" readonly>
+            </div>
+            <div class="campo">
+                <label for="modelo">Modelo:</label>
+                <input type="text" id="modelo" readonly>
+            </div>
+            <div class="campo">
+                <label for="kilometraje">Kilometraje:</label>
+                <input type="text" id="kilometraje" readonly>
+            </div>
+        </div>
+
+        <!-- Diagnóstico -->
+        <h3 class="title__form">Diagnóstico</h3>
+        <div class="falla_form">
+            <textarea id="diagnostico" placeholder="Describa el diagnóstico..." rows="4"></textarea>
+        </div>
+
+        <!-- Buscador de Piezas -->
+        <h3 class="title__form">Piezas</h3>
+        <div class="row">
+            <div class="search-container">
+                <label for="buscarPieza"></label>
+                <input type="text" id="buscarPieza" placeholder="Nombre o SKU">
+                <button type="button" id="btnBuscarPieza">Buscar</button>
+            </div>
+        </div>
+        <div>
+            <table id="tablaPiezas" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Nombre</th>
+                        <th>Precio</th>
+                        <th>Stock</th>
+                        <th>Seleccionar</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Filas dinámicas -->
+                </tbody>
+            </table>
+        </div>
+        <div class="row">
+            <div class="search-container2">
+                <label for="nombrepieza"></label>
+                <input type="text" id="nombrepieza" readonly placeholder="Pieza seleccionada:">
+                <input type="hidden" id="idPiezaHidden">
+            </div>
+        </div>
+
+        <div class="ra2">
+            <div>
+                <label for="cantidad">Cantidad:</label>
+                <input type="number" id="cantidad" min="1" value="1">
+            </div>
+            <div>
+                <label for="precioUnitario">Precio Unitario:</label>
+                <input type="text" id="precioUnitario" readonly>
+            </div>
+            <div>
+                <label for="precioTotal">Precio Total:</label>
+                <input type="text" id="precioTotal" readonly>
+            </div>
+            <div class="button__pieza">
+                <button type="button" id="btnAgregarPieza">Agregar</button>
+            </div>
+        </div>
+        <!-- Piezas Seleccionadas -->
+        <div>
+            <h3 class="title__form">Piezas Seleccionadas</h3>
+            <table id="tablaPiezasSeleccionadas" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Cantidad</th>
+                        <th>Precio Unit.</th>
+                        <th>Total</th>
+                        <th>Eliminar</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Filas dinámicas -->
+                </tbody>
+            </table>
+            <div class="total__container">
+                <label for="manoObra">Mano de Obra:</label>
+                <input type="number" id="manoObra" step="0.01" min="0">
+            </div>
+            <div class="total__container">
+                <label for="totalCotizacion">Total Diagnóstico:</label>
+                <input type="text" id="totalCotizacion" readonly>
+            </div>
+        </div>
+        <!-- Botones de Acción -->
+        <div class="button-container">
+            <button type="button" id="btnGuardar" class="register-btn">Guardar Diagnóstico</button>
+            <button type="button" id="btnPDF" class="register-btn">Generar PDF</button>
+        </div>
+    </div>
+    <script src="diagnostico.js"></script>
+</body>
+</html>

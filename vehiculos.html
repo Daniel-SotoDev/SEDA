@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registrar Vehículo</title>
+    <link rel="stylesheet" href="./styles/form.css">
+</head>
+<body>
+    <div class="modal">
+        <h2 class="main__title">Registro Vehicular</h2>
+        <button class="close-btn" id="closeModal">X</button>
+        <form id="vehiculoForm">
+            <h3 class="title__form">Cliente y Datos Del Vehiculo</h3>
+            <div>
+                <label for="buscarCliente" class="label__form"></label>
+                <input type="text" id="buscarCliente" placeholder="Buscar cliente por nombre o apellido">
+                <button type="button" id="btnBuscarCliente">Buscar</button>
+            </div>
+            <div>
+                <label for="IDCliente" class="label__form">Cliente</label>
+                <input type="text" id="IDCliente" name="IDCliente" readonly>
+                <input type="hidden" id="IDClienteHidden" name="IDClienteHidden">
+            </div>
+            <div>
+                <table id="tablaClientes" style="display: none;">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nombre</th>
+                            <th>Apellido</th>
+                            <th>Seleccionar</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Las filas se llenarán dinámicamente con JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="row">
+                <div>
+                    <label for="Placas" class="label__form">Matrícula</label>
+                    <input type="text" placeholder="Matrícula" id="Placas" name="Placas" required>
+                </div>
+                <div>
+                    <label for="Marca" class="label__form">Marca</label>
+                    <input type="text" placeholder="Marca" id="Marca" name="Marca" required>
+                </div>
+                <div>
+                    <label for="Linea_Vehiculo" class="label__form">Línea de Vehículo</label>
+                    <input type="text" placeholder="Línea" id="Linea_Vehiculo" name="Linea_Vehiculo" required>
+                </div>
+                <div>
+                    <label for="Modelo" class="label__form">Modelo</label>
+                    <input type="text" placeholder="Modelo" id="Modelo" name="Modelo" required>
+                </div>
+                <div>
+                    <label for="Color" class="label__form">Color</label>
+                    <input type="text" placeholder="Color" id="Color" name="Color" required>
+                </div>
+                <div>
+                    <label for="Kilometraje" class="label__form">Kilometraje</label>
+                    <input type="number" placeholder="Kilometraje" id="Kilometraje" name="Kilometraje" min="0" required>
+                </div>
+                <div>
+                    <label for="Testigos" class="label__form">Testigos</label>
+                    <input type="text" placeholder="Testigos" id="Testigos" name="Testigos" required>
+                </div>
+            </div>
+
+            <div class="button-container">
+                <button type="submit" class="register-btn">Registrar</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", async () => {
+            const form = document.getElementById("vehiculoForm");
+            const closeModal = document.getElementById("closeModal");
+            const buscarCliente = document.getElementById("buscarCliente");
+            const btnBuscarCliente = document.getElementById("btnBuscarCliente");
+            const IDCliente = document.getElementById("IDCliente");
+
+            if (closeModal) {
+                closeModal.addEventListener("click", function () {
+                    window.close();
+                });
+            }
+
+            // Obtener el puerto dinámico desde config.json
+            async function obtenerURLServidor() {
+                try {
+                    const response = await fetch(window.location.origin + "/config.json");
+                    if (response.ok) {
+                        const config = await response.json();
+                        return `http://127.0.0.1:${config.puerto}`;
+                    }
+                } catch (error) {
+                    console.error("Error obteniendo la URL del servidor:", error);
+                    return "http://127.0.0.1:4000"; // Fallback
+                }
+            }
+
+            // Función para buscar clientes
+            async function buscarClientes(filtro) {
+                console.log("Buscando clientes con filtro:", filtro);
+                const urlServidor = await obtenerURLServidor();
+                const response = await fetch(`${urlServidor}/buscarClientes?filtro=${encodeURIComponent(filtro)}`);
+                
+                if (!response.ok) {
+                    console.error("Error en la respuesta del servidor:", response.statusText);
+                    return;
+                }
+
+                const clientes = await response.json();
+                console.log("Clientes encontrados:", clientes);
+                const tablaClientes = document.getElementById("tablaClientes");
+                const tbody = tablaClientes.querySelector("tbody");
+
+                tbody.innerHTML = ""; // Limpiar la tabla
+
+                if (clientes.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="4">No se encontraron clientes.</td></tr>`;
+                } else {
+                    // Llenar la tabla con los resultados
+                    clientes.forEach(cliente => {
+                        const fila = document.createElement("tr");
+                        fila.innerHTML = `
+                            <td>${cliente.IDCliente}</td>
+                            <td>${cliente.Nombre}</td>
+                            <td>${cliente.Apellido}</td>
+                            <td><button type="button" class="btnSeleccionarCliente" data-id="${cliente.IDCliente}"> ✔ </button></td>
+                        `;
+                        tbody.appendChild(fila);
+                    });
+                }
+
+                // Mostrar la tabla
+                tablaClientes.style.display = "table";
+            }
+
+            // Evento para buscar clientes al hacer clic en el botón
+            btnBuscarCliente.addEventListener("click", () => {
+                const filtro = buscarCliente.value.trim();
+                if (filtro) {
+                    buscarClientes(filtro);
+                } else {
+                    alert("Por favor, ingresa un nombre o apellido para buscar.");
+                }
+            });
+
+            // Evento para buscar clientes al presionar Enter
+            buscarCliente.addEventListener("keypress", (event) => {
+                if (event.key === "Enter") {
+                    event.preventDefault();
+                    const filtro = buscarCliente.value.trim();
+                    if (filtro) {
+                        buscarClientes(filtro);
+                    } else {
+                        alert("Por favor, ingresa un nombre o apellido para buscar.");
+                    }
+                }
+            });
+
+            // Evento para seleccionar un cliente de la tabla
+            document.addEventListener("click", (event) => {
+                if (event.target.classList.contains("btnSeleccionarCliente")) {
+                    const idCliente = event.target.getAttribute("data-id");
+                    const nombreCliente = event.target.parentElement.previousElementSibling.textContent;
+                    const apellidoCliente = event.target.parentElement.previousElementSibling.previousElementSibling.textContent;
+                    IDCliente.value = `${nombreCliente} ${apellidoCliente}`;
+                    document.getElementById("IDClienteHidden").value = idCliente;
+                    buscarCliente.value = ""; // Limpiar el campo de búsqueda
+                    document.getElementById("tablaClientes").style.display = "none"; // Ocultar la tabla
+                }
+            });
+
+            // Registrar vehículo
+            form.addEventListener("submit", async (event) => {
+                event.preventDefault();
+
+                const vehiculoData = {
+                    IDCliente: document.getElementById("IDClienteHidden").value,
+                    Placas: document.getElementById("Placas").value.trim(),
+                    Marca: document.getElementById("Marca").value.trim(),
+                    Linea_Vehiculo: document.getElementById("Linea_Vehiculo").value.trim(),
+                    Modelo: document.getElementById("Modelo").value.trim(),
+                    Color: document.getElementById("Color").value.trim(),
+                    Kilometraje: parseInt(document.getElementById("Kilometraje").value) || 0,
+                    Testigos: document.getElementById("Testigos").value.trim()
+                };
+
+                if (!vehiculoData.IDCliente) {
+                    alert("Debe seleccionar un cliente antes de registrar el vehículo.");
+                    return;
+                }
+
+                try {
+                    const urlServidor = await obtenerURLServidor();
+                    const response = await fetch(`${urlServidor}/registrar-vehiculo`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(vehiculoData),
+                    });
+
+                    if (!response.ok) throw new Error("Error en la respuesta del servidor");
+
+                    const data = await response.json();
+                    alert(data.message || "Vehículo registrado correctamente");
+
+                    form.reset();
+                    IDCliente.value = "";
+                    document.getElementById("IDClienteHidden").value = "";
+                } catch (error) {
+                    console.error("Error al registrar vehículo:", error);
+                    alert("Error al registrar vehículo");
+                }
+            });
+        });
+    </script>
+</body>
+</html>

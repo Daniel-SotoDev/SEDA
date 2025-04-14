@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catálogo de Piezas</title>
+    <link rel="stylesheet" href="./styles/piezas.css">
+</head>
+<body>
+    <div class="container">
+        <h1>CATALOGO DE PIEZAS</h1>
+        <button class="close-btn" id="closeModal">X</button>
+
+        <div>
+            <!-- Botón para abrir el modal -->
+            <button id="btnAbrirModal" class="btn-ingreso">Ingreso al Inventario</button>
+            <!-- Botón para abrir el modal de actualización de existencias -->
+            <button id="btnActualizarExistencias" class="btn-actualizar">Actualizar Existencias</button>
+        </div>
+        <!-- Buscador -->
+        <div class="search-container">
+            <input type="text" id="buscar_pieza" placeholder="Buscar por SKU o Nombre...">
+            <button id="btnBuscar">Buscar</button>
+        </div>
+
+        
+
+        <!-- Tabla de piezas -->
+        <table>
+            <thead>
+                <tr>
+                    <th>Foto</th>
+                    <th>Nombre</th>
+                    <th>SKU</th>
+                    <th>Marca</th>
+                    <th>Precio</th>
+                    <th>Existencia</th>
+                </tr>
+            </thead>
+            <tbody id="tabla_piezas">
+                <!-- Las piezas se llenarán dinámicamente con JavaScript -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Modal para Ingreso de Piezas -->
+    <div id="modalPieza" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close" id="cerrarModal">&times;</span>
+            <h2>Registrar Nueva Pieza</h2>
+            <form id="formPieza">
+                <label for="nombre">Nombre de la Pieza:</label>
+                <input type="text" id="nombre" required>
+
+                <label for="sku">SKU:</label>
+                <input type="text" id="sku" required>
+
+                <label for="marca">Marca:</label>
+                <input type="text" id="marca" required>
+
+                <label for="compra">Precio compra:</label>
+                <input type="number" id="compra" required>
+
+                <label for="precio">Precio:</label>
+                <input type="number" id="precio" step="0.01" required>
+
+                <label for="existencia">Existencia:</label>
+                <input type="number" id="existencia" required>
+
+            <!-- <label for="Estatus">Estatus:</label>
+                <select id="Estatus" required>
+                    Las opciones se llenarán dinamicamente con JavaScript
+                </select> -->
+
+                <label for="foto">Foto:</label>
+                <input type="file" id="foto" accept="image/*">
+
+                <button type="submit" class="btn-guardar">Guardar Pieza</button>
+            </form>
+        </div>
+    </div>    
+<!-- Modal para actualizar existencias -->
+<div id="modalActualizarExistencias" class="modal" style="display: none;">
+    <div class="modal-content">
+        <span class="close" id="cerrarModalActualizar">&times;</span>
+        <h2>Actualizar Existencias</h2>
+        <form id="formActualizarExistencias">
+            <label for="buscarSKU">Buscar por SKU:</label>
+            <input type="text" id="buscarSKU" placeholder="Ingresa el SKU" required>
+            <button type="button" id="btnBuscarSKU">Buscar</button>
+
+            <label for="nombrePieza">Nombre de la Pieza:</label>
+            <input type="text" id="nombrePieza" readonly>
+
+            <label for="cantidadAgregar">Cantidad a Agregar:</label>
+            <input type="number" id="cantidadAgregar" min="1">
+
+            <label for="costoCompra">Costo de Compra (opcional):</label>
+            <input type="number" id="costoCompra" step="0.01">
+
+            <label for="precioVenta">Precio de Venta (opcional):</label>
+            <input type="number" id="precioVenta" step="0.01">
+
+            <button type="submit">Actualizar</button>
+        </form>
+    </div>
+</div>
+    <script src="catalogo.js"></script>
+</body>
+</html>

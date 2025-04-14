@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cotizaciones</title>
+    <link rel="stylesheet" href="./styles/form_cotizaciones.css">
+</head>
+<body>
+    <div class="modal">
+        <h2 class="main__title">Cotizaciones</h2>
+        <button class="close-btn" id="closeModal">X</button>
+        <form id="cotizacionForm" enctype="multipart/form-data">
+            <div class="date">
+                <label for="fecha">Fecha:</label>
+                <input type="date" id="fecha" name="fecha" required>
+            </div>
+            <div class="label__form">
+                <label for="folio">Folio:</label>
+                <input type="text" id="folio" name="folio" readonly class="folio_item">
+            </div>
+
+            <!-- Buscador de clientes -->
+            <h3 class="title__form">Cliente</h3>
+            <div class="row">
+                <div class="search-container">
+                    <label for="buscarCliente"></label>
+                    <button type="button" id="btnBuscarCliente">Buscar</button>
+                    <input type="text" id="buscarCliente" placeholder="Buscar...">
+                </div>
+                <div class="search-container2">
+                    <label for="IDCliente"></label>
+                    <input type="text" id="IDCliente" readonly placeholder="Nombre Cliente">
+                    <input type="hidden" id="IDClienteHidden" name="IDClienteHidden">
+                </div>
+            </div>
+            <div>
+                <table id="tablaClientes" style="display: none;">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nombre</th>
+                            <th>Apellido</th>
+                            <th>Seleccionar</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Filas dinámicas -->
+                    </tbody>
+                </table>
+            </div>
+            <!-- Buscador de vehículos -->
+            <h3 class="title__form">Vehículo</h3>
+            <div class="row">
+                <div class="search-container_vehicles">
+                    <label for="buscarVehiculo"></label>
+                    <button type="button" id="btnBuscarVehiculo" class="vehicle_button">Buscar</button>
+                    <input type="text" id="buscarVehiculo" placeholder="Placas o marca">
+                </div>
+                <div class="search-container2 campo">
+                    <label for="IDVehiculo"></label>
+                    <input type="text" id="IDVehiculo" readonly placeholder="Vehiculo Cliente">
+                    <input type="hidden" id="IDVehiculoHidden" name="IDVehiculoHidden">
+                </div>
+            </div>
+            <div>
+                <table id="tablaVehiculos" style="display: none;">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Placas</th>
+                            <th>Marca</th>
+                            <th>Modelo</th>
+                            <th>Seleccionar</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Filas dinámicas -->
+                    </tbody>
+                </table>
+            </div>
+            <h3 class="title__form">Detalles de la Cotización</h3>
+            <div class="falla_form">
+                <label for="Falla" class="title__label">Descripción de la Falla:</label>
+                <input type="text" id="Falla" name="Falla" required class="textarea">
+            </div>
+            <h3 class="title__form">Piezas</h3>
+        
+            <div class="row">
+                <div class="search-container">
+                    <label for="buscarPieza"></label>
+                    <button type="button" id="btnBuscarPieza">Buscar</button>
+                    <input type="text" id="buscarPieza" placeholder="Nombre o SKU">   
+                </div>
+                <div class="search-container2">
+                    <label for="nombrepieza"></label>
+                    <input type="text" id="nombrepieza" name="nombrepieza" readonly placeholder="Nombre Pieza">
+                    <input type="hidden" id="idPiezaHidden" name="idPiezaHidden">
+                </div>
+            </div>
+        <div class="ra2">
+                <div>
+                    <label for="cantidad">Cantidad:</label>
+                    <input type="number" id="cantidad" name="cantidad" min="1" value="1">
+                </div>
+                <div>
+                    <label for="precioUnitario">Precio Unitario:</label>
+                    <input type="text" id="precioUnitario" readonly>
+                </div>
+                <div>
+                    <label for="precioTotal">Precio Total:</label>
+                    <input type="text" id="precioTotal" readonly>
+                </div>
+                <div class="button__pieza">
+                    <button type="button" id="btnAgregarPieza">Agregar Pieza</button>
+                </div>
+        </div>
+            <div>
+                <table id="tablaPiezas" style="display: none;">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nombre</th>
+                            <th>SKU</th>
+                            <th>Marca</th>
+                            <th>Precio</th>
+                            <th>Existencias</th>
+                            <th>Seleccionar</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Filas dinámicas -->
+                    </tbody>
+                </table>
+            </div>
+            <div>
+                <h3 class="title__form">Piezas Seleccionadas</h3>
+                <table id="tablaPiezasSeleccionadas" style="display: none;">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Cantidad</th>
+                            <th>Precio Unitario</th>
+                            <th>Precio Total</th>
+                            <th>Remover</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Filas dinámicas -->
+                    </tbody>
+                </table>
+                <div class="total__container">
+                    <label for="manoObra">Mano de Obra:</label>
+                    <input type="number" id="manoObra" step="0.01" min="0" oninput="actualizarTotal()">
+                </div>
+                <div class="total__container">
+                    <label for="totalCotizacion">Total Cotización:</label>
+                    <input type="text" id="totalCotizacion" readonly>
+                </div>
+            </div>
+            <h3 class="title__form">Estatus</h3>
+            <div class="row">
+                <select name="Estatus" id="Estatus" required>
+                    <option value="1">En Proceso</option>
+                    <option value="2">En Revision</option>
+                    <option value="3">Autorizado</option>
+                </select>
+            </div>
+
+            <div class="button-container">
+                <button type="submit" class="register-btn">Registrar Cotización</button>
+            </div>
+        </form>
+    </div>
+
+    <script src="cotizaciones.js"></script>
+</body>
+</html>

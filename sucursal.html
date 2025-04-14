@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crear Sucursal</title>
+    <link rel="stylesheet" href="./styles/options.css">
+</head>
+<body>
+    <div class="modal"> 
+        <button class="close-btn" id="closeModal">X</button>
+        <h2>Crear Sucursal</h2>
+        <form id="sucursalForm">
+            <label for="nombre">Nombre:</label>
+            <input type="text" id="nombre" required>
+            <label for="direccion">Dirección:</label>
+            <input type="text" id="direccion" required>
+            <label for="telefono">Teléfono:</label>
+            <input type="text" id="telefono" required>
+            <button type="submit">Guardar</button>
+        </form>
+        <p id="error-msg"></p>
+    </div>
+    <script src="sucursal.js"></script>
+</body>
+</html>

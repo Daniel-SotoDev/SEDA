@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crear Asesor</title>
+    <link rel="stylesheet" href="./styles/asesor.css">
+</head>
+<body>
+    <div class="modal">
+        <h2 class="main__title">Registrar Nuevo Asesor</h2>
+        <button class="close-btn" id="closeModal">X</button>
+        
+        <form id="asesorForm">
+            <div class="row">
+                <div class="form__group">
+                    <label for="nombre" class="label__form">Nombre:</label>
+                    <input type="text" id="nombre" placeholder="Ingrese nombre" required>
+                </div>
+                
+                <div class="form__group">
+                    <label for="apellido" class="label__form">Apellido:</label>
+                    <input type="text" id="apellido" placeholder="Ingrese apellido" required>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="form__group">
+                    <label for="sucursal" class="label__form">Sucursal:</label>
+                    <select id="sucursal" required>
+                        <option value="">Seleccione sucursal</option>
+                        <!-- Opciones se llenarán dinámicamente -->
+                    </select>
+                </div>
+            </div>
+            
+            <div class="button-container">
+                <button type="submit" class="register-btn">Registrar Asesor</button>
+            </div>
+        </form>
+    </div>
+    
+    <script src="asesor.js"></script>
+</body>
+</html>

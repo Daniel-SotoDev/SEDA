@@ -1,0 +1,1318 @@
+const express = require("express");
+const multer = require("multer");
+const cors = require("cors");
+const bcrypt = require("bcryptjs");
+const config = require('./config');
+const obtenerUltimoFolio = require("./folios");
+const obtenerUltimoFolioCotizacion = require ("./folioscotizacion")
+const { sql, poolPromise } = require("./db");
+const socketIo = require("socket.io");
+const http = require("http");
+const fs = require("fs");
+const path = require("path");
+const net = require("net");
+
+const app = express()
+
+app.use(express.static(__dirname));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cors({ origin: "*", methods: ["GET", "POST"], allowedHeaders: ["Content-Type"] }));
+app.get("/obtenerUltimoFolio", async (req, res) => {
+    try {
+        const ultimoFolio = await obtenerUltimoFolio();
+        res.json({ ultimoFolio });
+    } catch (error) {
+        res.status(500).json({ error: "Error al obtener el folio" });
+    }
+});
+app.get("/obtenerUltimoFolioCotizacion", async (req, res) => {
+    try {
+        const ultimoFolio = await obtenerUltimoFolioCotizacion();
+        res.json({ ultimoFolio });
+    } catch (error) {
+        res.status(500).json({ error: "Error al obtener el folio" });
+    }
+});
+
+
+// Configuración de multer para almacenamiento de memoria ()
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
+
+// Ruta del login
+app.post("/login", async (req, res) => {
+    const { usuario, contraseña } = req.body;
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input("usuario", sql.VarChar, usuario)
+            .query("SELECT id, usuario, password, rol FROM usuarios WHERE usuario = @usuario");
+
+        if (result.recordset.length === 0) {
+            return res.status(401).json({ error: "Usuario no encontrado" });
+        }
+
+        const user = result.recordset[0];
+
+        // Depuración: Verifica los valores
+        console.log("Usuario encontrado:", user);
+        console.log("Contraseña recibida:", contraseña);
+        console.log("Contraseña almacenada:", user.password);
+
+        // Verifica que la contraseña no sea undefined
+        if (!user.password) {
+            return res.status(401).json({ error: "Contraseña no definida para el usuario" });
+        }
+
+        // Compara la contraseña
+        const passwordMatch = await bcrypt.compare(contraseña, user.password);
+        if (!passwordMatch) {
+            return res.status(401).json({ error: "Contraseña incorrecta" });
+        }
+
+        res.json({ success: true, usuario: user.usuario, rol: user.rol });
+    } catch (error) {
+        console.error("Error en login:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+});
+
+async function iniciarServidor() {
+    const puerto = await encontrarPuertoLibre();
+    fs.writeFile("config.json", JSON.stringify({ puerto: puerto }, null, 2), (err) => {
+        if (err) {
+            console.error("Error al guardar el puerto en config.json:", err);
+        } else {
+            console.log("Puerto guardado en config.json");
+        }
+    });
+
+    const server = http.createServer(app);
+    const io = socketIo(server, {
+        cors: { origin: "*", methods: ["GET", "POST"] }
+    });
+
+    io.on("connection", (socket) => {
+        console.log("Nuevo cliente conectado");
+        socket.on("disconnect", () => console.log("Cliente desconectado"));
+    });
+
+    app.get("/generar-folio-cotizacion", async (req, res) => {
+        try {
+            const pool = await poolPromise;
+            const result = await pool.request().query(`
+            SELECT MAX(TRY_CAST(RIGHT(Folio, 6) AS INT)) AS ultimoNumero
+            FROM Cotizaciones
+            WHERE Folio LIKE 'C-%'
+        `);
+    
+        let ultimoNumero = result.recordset[0].ultimoNumero;
+
+        // Si no hay registros, inicia en 0
+        if (ultimoNumero === null) {
+            ultimoNumero = 0;
+        }
+
+        const nuevoNumero = ultimoNumero + 1;
+
+        // Obtener la fecha actual
+        const fecha = new Date();
+        const año = fecha.getFullYear().toString().slice(-4); // Año completo (4 dígitos)
+        const mes = ("0" + (fecha.getMonth() + 1)).slice(-2);
+        const dia = ("0" + fecha.getDate()).slice(-2);
+
+        // Formatear correctamente el nuevo folio
+        const nuevoFolio = `C-${año}${mes}${dia}-${nuevoNumero.toString().padStart(6, '0')}`;
+
+        res.json({ folio: nuevoFolio });
+    } catch (error) {
+        console.error("Error al generar folio:", error);
+
+        // Si hay error, generar un folio con la fecha actual y número 000001
+        const fecha = new Date();
+        const año = fecha.getFullYear().toString().slice(-4);
+        const mes = ("0" + (fecha.getMonth() + 1)).slice(-2);
+        const dia = ("0" + fecha.getDate()).slice(-2);
+        const nuevoFolio = `C-${año}${mes}${dia}-000001`;
+
+        res.json({ folio: nuevoFolio });
+    }
+});
+    
+app.post("/nuevoIngreso", (req, res) => {
+    console.log("Nuevo ingreso recibido:", req.body);
+    
+    pool.request()
+        .query(`
+            SELECT Folio
+            FROM Ingresos
+            WHERE CAST(FechaIngreso AS DATE) = CAST(GETDATE() AS DATE)
+        `)
+        .then(result => {
+            const folios = result.recordset.map(row => row.Folio);
+            io.emit('actualizarFolios', folios);  // Emitir la lista actualizada de folios
+        })
+        .catch(error => {
+            console.error("Error al obtener los folios:", error);
+        });
+
+    res.send({ success: true, message: "Ingreso registrado" });
+});
+
+// Ruta para guardar ingreso
+app.post("/guardarIngreso", upload.single("Fotos"), async (req, res) => {
+    try {
+        console.log(" Recibiendo solicitud en /guardarIngreso");
+        console.log(" Datos recibidos:", req.body);
+
+         // Convertir a números
+        const IDCliente = parseInt(req.body.IDCliente, 10);
+        const IDVehiculo = parseInt(req.body.IDVehiculo, 10);
+        const IDAsesor = parseInt(req.body.IDAsesor, 10);
+        if (isNaN(IDAsesor)) {
+            return res.status(400).json({ error: "Seleccione un asesor válido" });
+        }
+         // Validar conversión
+        if (isNaN(IDCliente) || isNaN(IDVehiculo)) {
+            console.error("IDs no numéricos:", {IDCliente, IDVehiculo});
+            return res.status(400).json({ error: "IDs inválidos" });
+        }
+
+         // Resto de las validaciones
+        if (!req.body.FechaIngreso) {
+            return res.status(400).json({ error: "La fecha es obligatoria" });
+        }
+
+        const { FechaIngreso, Folio, IDCotizacion } = req.body;
+        const Fotos = req.file ? req.file.buffer : null;
+
+        const pool = await poolPromise;
+        await pool.request()
+            .input("Folio", sql.NVarChar, Folio)
+            .input("FechaIngreso", sql.DateTime, FechaIngreso)
+            .input("IDCliente", sql.Int, IDCliente)
+            .input("IDVehiculo", sql.Int, IDVehiculo)
+            .input("IDAsesor", sql.Int, IDAsesor)
+            .input("IDCotizacion", sql.Int, IDCotizacion || null)
+            .input("Fotos", sql.VarBinary, Fotos)
+            .query(`
+                INSERT INTO Ingresos (Folio, FechaIngreso, IDCliente, IDVehiculo, IDAsesor, IDCotizacion, Fotos)
+                VALUES (@Folio, @FechaIngreso, @IDCliente, @IDVehiculo, @IDAsesor, @IDCotizacion, @Fotos)
+            `);
+                
+            io.emit("nuevo-folio", Folio);
+        res.status(200).json({ message: "Ingreso registrado correctamente" });
+    } catch (error) {
+        console.error("Error en el servidor:", error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+//BUSCADOR DE PIEZAS
+app.get('/buscar-pieza', async (req, res) => {
+    const Nombre_pieza = req.query.nombre;
+    try {
+        const result = await pool.request()
+            .query("SELECT Nombre_pieza, Cantidad, Precio_venta FROM Piezas");
+        res.json(result.recordset[0] || null);
+    } catch (error) {
+        res.status(500).send('Error al buscar pieza');
+    }
+});
+//OBTENER ASESORES
+app.get("/obtenerAsesores", async (req, res) => {
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request().query("SELECT IDAsesor, Nombre, Apellido FROM Asesor");
+        res.json(result.recordset);
+    } catch (error) {
+        console.error("Error al obtener asesores:", error);
+        res.status(500).json({ error: "Error al obtener asesores" });
+    }
+});
+
+//OBTENER VEHICULOS
+app.get("/obtenerVehiculos", async (req, res) => {
+    const { filtro } = req.query;
+
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input("filtro", sql.VarChar, `%${filtro}%`)
+            .query(`
+                SELECT IDVehiculo, Placas, Marca, Modelo 
+                FROM Vehiculos 
+                WHERE Placas LIKE @filtro
+            `);
+
+        res.json(result.recordset);
+    } catch (error) {
+        console.error("Error al obtener vehículos:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+});
+// Obtener vehículos por IDCliente
+app.get("/obtenerVehiculosPorCliente", async (req, res) => {
+    const { IDCliente } = req.query;
+
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input("IDCliente", sql.Int, IDCliente)
+            .query(`
+                SELECT IDVehiculo, Placas, Marca, Modelo, Linea_Vehiculo 
+                FROM Vehiculos 
+                WHERE IDCliente = @IDCliente
+            `);
+
+        res.json(result.recordset);
+    } catch (error) {
+        console.error("Error al obtener vehículos por cliente:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+});
+// Ruta para buscar clientes por nombre o apellido
+app.get("/buscarClientes", async (req, res) => {
+    const { filtro } = req.query;
+    console.log("Buscando clientes con filtro:", filtro);
+
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input("filtro", sql.VarChar, `%${filtro}%`)
+            .query(`
+                SELECT IDCliente, Nombre, Apellido 
+                FROM Clientes 
+                WHERE Nombre LIKE @filtro OR Apellido LIKE @filtro
+            `);
+        console.log("Resultados de la consulta:", result.recordset);
+        res.json(result.recordset);
+    } catch (error) {
+        console.error("Error al buscar clientes:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+});
+
+
+//RELACIONAR COTIZACIONES
+app.post("/relacionarCotizacion", async (req, res) => {
+    try {
+        const { folio, cotizacion_id } = req.body;
+
+        if (!folio || !cotizacion_id) {
+            return res.status(400).json({ error: "Folio de ingreso y cotización son necesarios" });
+        }
+
+        const pool = await poolPromise;
+        await pool.request()
+            .input("folio", sql.VarChar, folio)
+            .input("cotizacion_id", sql.VarChar, cotizacion_id)
+            .query(`
+                UPDATE Ingresos 
+                SET cotizacion_id = @cotizacion_id 
+                WHERE folio = @folio
+            `);
+
+        res.status(200).json({ message: "Cotización relacionada con el ingreso correctamente" });
+    } catch (error) {
+        console.error("Error al relacionar cotización con ingreso:", error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+
+// Registrar cotización con piezas
+app.post("/registrar-cotizacion", async (req, res) => {
+    const { Folio, Fecha, IDCliente, IDVehiculo, Falla, Piezas, PrecioTotal, IDEstatus, ManoObra } = req.body;
+
+    if (!Folio || !Fecha || !IDCliente || !IDVehiculo || !Falla || !Piezas || Piezas.length === 0 || !PrecioTotal || !IDEstatus) {
+        return res.status(400).json({ error: "Todos los campos son obligatorios." });
+    }
+    if (!IDVehiculo) {
+        return res.status(400).json({ error: "El vehículo es requerido" });
+    }
+
+    const pool = await poolPromise;
+    const transaction = new sql.Transaction(pool);
+
+    try {
+        await transaction.begin();
+
+        // Insertar la cotización
+        const cotizacionResult = await transaction.request()
+            .input("Folio", sql.NVarChar, Folio)
+            .input("Fecha", sql.DateTime, Fecha) //--
+            .input("IDCliente", sql.Int, IDCliente)
+            .input("IDVehiculo", sql.Int, IDVehiculo) 
+            .input("Falla", sql.NVarChar, Falla)
+            .input("ManoObra", sql.Decimal(18,2), ManoObra || 0)
+            .input("PrecioTotal", sql.Decimal(18, 2), PrecioTotal)
+            .input("IDEstatus", sql.Int, IDEstatus)
+            .query(`
+                INSERT INTO Cotizaciones (Folio, Fecha, IDCliente, IDVehiculo, Falla, Precio_cotizacion, IDEstatus, Mano_Obra) 
+                OUTPUT INSERTED.IDCotizacion
+                VALUES (@Folio, @Fecha, @IDCliente, @IDVehiculo, @Falla, @PrecioTotal, @IDEstatus, @ManoObra)
+            `);
+
+        const IDCotizacion = cotizacionResult.recordset[0].IDCotizacion;
+
+        // Insertar las piezas asociadas a la cotización
+        for (const pieza of Piezas) {
+
+            if (!pieza.IDPieza && !pieza.idPieza) {
+                throw new Error("Una de las piezas no tiene ID válido");
+            }
+            
+            const idPieza = pieza.IDPieza || pieza.idPieza;
+
+            await transaction.request()
+            .input("IDCotizacion", sql.Int, IDCotizacion)
+            .input("IDPieza", sql.Int, idPieza)
+            .input("Cantidad_Cotizada", sql.Int, pieza.cantidadPieza)
+            .input("Precio", sql.Decimal(18, 2), pieza.precioVenta)
+            .query(`
+                INSERT INTO DetallePiezas (IDCotizacion, IDPieza, Cantidad_Cotizada, Precio) 
+                VALUES (@IDCotizacion, @IDPieza, @Cantidad_Cotizada, @Precio)
+            `);
+                // Actualizar la cantidad de piezas en el inventario
+            await transaction.request()
+                .input("IDPieza", sql.Int, idPieza)
+                .input("Cantidad", sql.Int, pieza.cantidadPieza)
+                .query(`
+                    UPDATE Piezas 
+                    SET Cantidad = ISNULL(Cantidad, 0) - @Cantidad 
+                    WHERE IDPieza = @IDPieza
+                `);
+        }
+
+        await transaction.commit();
+        res.status(201).json({ message: "Cotización registrada correctamente", IDCotizacion });
+    } catch (error) {
+        await transaction.rollback();
+        console.error("Error al registrar cotización:", error);
+        res.status(500).json({ error: "Error en el servidor al registrar la cotización" });
+    }
+});
+
+// Buscar cotizaciones por folio o nombre de cliente
+app.get("/buscarCotizaciones", async (req, res) => {
+    const { filtro } = req.query;
+    
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input("filtro", sql.NVarChar, `%${filtro}%`)
+            .query(`
+                SELECT 
+                    c.Folio,
+                    cl.Nombre + ' ' + cl.Apellido AS Cliente,
+                    v.Placas,
+                    v.Marca,
+                    v.Modelo,
+                    v.Placas + ' - ' + v.Marca + ' ' + v.Modelo AS Vehiculo,
+                    c.IDCotizacion,
+                    c.IDCliente,
+                    c.IDVehiculo 
+                FROM Cotizaciones c
+                INNER JOIN Clientes cl ON c.IDCliente = cl.IDCliente
+                INNER JOIN Vehiculos v ON c.IDVehiculo = v.IDVehiculo
+                WHERE c.Folio LIKE @filtro 
+                OR cl.Nombre LIKE @filtro 
+                OR cl.Apellido LIKE @filtro
+            `);
+
+        res.json(result.recordset);
+    } catch (error) {
+        console.error("Error al buscar cotizaciones:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+});
+// Obtener cotización completa con detalles
+app.get("/obtenerCotizacionCompleta", async (req, res) => {
+    const { id } = req.query;
+
+    try {
+        const pool = await poolPromise;
+        
+        // Obtener información básica de la cotización
+        const cotizacionResult = await pool.request()
+            .input("id", sql.Int, id)
+            .query(`
+                SELECT 
+                    c.*,
+                    c.Mano_Obra,
+                    cl.Nombre, 
+                    cl.Apellido,
+                    v.Placas,
+                    v.Marca,
+                    v.Modelo,
+                    v.Linea_Vehiculo,
+                    v.Color,
+                    v.Kilometraje
+                FROM Cotizaciones c
+                INNER JOIN Clientes cl ON c.IDCliente = cl.IDCliente
+                INNER JOIN Vehiculos v ON c.IDVehiculo = v.IDVehiculo
+                WHERE c.IDCotizacion = @id
+            `);
+
+        if (cotizacionResult.recordset.length === 0) {
+            return res.status(404).json({ error: "Cotización no encontrada" });
+        }
+
+        const cotizacion = cotizacionResult.recordset[0];
+
+        // Obtener piezas asociadas a la cotización
+        const piezasResult = await pool.request()
+            .input("id", sql.Int, id)
+            .query(`
+                SELECT 
+                    dp.IDPieza,
+                    p.Nombre_pieza,
+                    dp.Cantidad_Cotizada,
+                    dp.Precio
+                FROM DetallePiezas dp
+                JOIN Piezas p ON dp.IDPieza = p.IDPieza
+                WHERE dp.IDCotizacion = @id
+            `);
+
+        res.json({
+            ...cotizacion,
+            piezas: piezasResult.recordset
+        });
+    } catch (error) {
+        console.error("Error al obtener cotización completa:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+});
+// Obtener ingreso por cotización
+app.get("/obtenerIngresoPorCotizacion", async (req, res) => {
+    const { id } = req.query;
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input("id", sql.Int, id)
+            .query("SELECT TOP 1 * FROM Ingresos WHERE IDCotizacion = @id");
+        
+        res.json(result.recordset[0] || null);
+    } catch (error) {
+        console.error("Error al obtener ingreso:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+});
+// Generar folio para nuevo ingreso
+app.get("/generarFolioIngreso", async (req, res) => {
+    try {
+        const fecha = new Date();
+        const año = fecha.getFullYear();
+        const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+        const dia = String(fecha.getDate()).padStart(2, '0');
+        
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .query(`
+                SELECT MAX(TRY_CAST(RIGHT(Folio, 6) AS INT)) AS ultimo 
+                FROM Ingresos 
+                WHERE Folio LIKE 'F-${año}${mes}${dia}-%'
+            `);
+        
+        const ultimoNum = result.recordset[0].ultimo || 0;
+        const nuevoFolio = `F-${año}${mes}${dia}-${String(ultimoNum + 1).padStart(6, '0')}`;
+        
+        res.json({ folio: nuevoFolio });
+    } catch (error) {
+        console.error("Error generando folio:", error);
+        res.status(500).json({ error: "Error al generar folio" });
+    }
+});
+// Crear registro inicial en Ingresos
+app.post("/crearIngresoInicial", async (req, res) => {
+    const { Folio, IDCotizacion, IDCliente, IDVehiculo } = req.body;
+    
+    try {
+        const pool = await poolPromise;
+        await pool.request()
+            .input("Folio", sql.NVarChar, Folio)
+            .input("IDCotizacion", sql.Int, IDCotizacion)
+            .input("IDCliente", sql.Int, IDCliente)
+            .input("IDVehiculo", sql.Int, IDVehiculo)
+            .input("FechaIngreso", sql.DateTime, new Date())
+            .query(`
+                INSERT INTO Ingresos (Folio, FechaIngreso, IDCliente, IDVehiculo, IDCotizacion)
+                VALUES (@Folio, @FechaIngreso, @IDCliente, @IDVehiculo, @IDCotizacion)
+            `);
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error("Error creando ingreso inicial:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+});
+
+// Obtener cotización por folio
+app.get("/obtenerCotizacionPorFolio", async (req, res) => {
+    const { folio } = req.query;
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input("folio", sql.NVarChar, folio)
+            .query(`
+                SELECT TOP 1 IDCotizacion 
+                FROM Cotizaciones 
+                WHERE Folio = @folio
+            `);
+        
+        if (result.recordset.length === 0) {
+            return res.status(404).json({ error: "Cotización no encontrada" });
+        }
+        
+        const idCotizacion = result.recordset[0].IDCotizacion;
+        res.json({ IDCotizacion: idCotizacion });
+    } catch (error) {
+        console.error("Error al obtener cotización por folio:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+});
+
+// Actualizar cotización y piezas
+app.post("/actualizarCotizacion", async (req, res) => {
+    const { IDCotizacion, Piezas, PrecioTotal, ManoObra } = req.body;
+    const pool = await poolPromise;
+    const transaction = new sql.Transaction(pool);
+
+    if (!IDCotizacion || isNaN(ManoObra)) {
+        return res.status(400).json({ error: "Datos inválidos" });
+
+    }
+
+    try {
+        await transaction.begin();
+        
+        // Eliminar detalles existentes
+        await transaction.request()
+            .input("IDCotizacion", sql.Int, IDCotizacion)
+            .query("DELETE FROM DetallePiezas WHERE IDCotizacion = @IDCotizacion");
+        
+        // Insertar nuevas piezas
+        for (const pieza of Piezas) {
+            await transaction.request()
+                .input("IDCotizacion", sql.Int, IDCotizacion)
+                .input("IDPieza", sql.Int, pieza.IDPieza)
+                .input("Cantidad_Cotizada", sql.Int, pieza.cantidad)
+                .input("Precio", sql.Decimal(18,2), pieza.precio)
+                .query(`
+                    INSERT INTO DetallePiezas (IDCotizacion, IDPieza, Cantidad_Cotizada, Precio)
+                    VALUES (@IDCotizacion, @IDPieza, @Cantidad_Cotizada, @Precio)
+                `);
+        }
+
+        // Actualizar precio total
+        await transaction.request()
+            .input("IDCotizacion", sql.Int, IDCotizacion)
+            .input("ManoObra", sql.Decimal(18,2), ManoObra)
+            .input("PrecioTotal", sql.Decimal(18,2), PrecioTotal)
+            .query(`
+                UPDATE Cotizaciones 
+                SET Precio_cotizacion = @PrecioTotal,
+                    Mano_Obra = @ManoObra
+                WHERE IDCotizacion = @IDCotizacion
+            `);
+
+        await transaction.commit();
+        res.json({ success: true, message: "Cotización actualizada correctamente" });
+    } catch (error) {
+        await transaction.rollback();
+        console.error("Error al actualizar cotización:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+});
+app.get("/obtenerPiezasPorVehiculo", async (req, res) => {
+    const { IDVehiculo } = req.query;
+
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input("IDVehiculo", sql.Int, IDVehiculo)
+            .query(`
+                SELECT 
+                    p.Nombre_pieza,
+                    p.SKU,
+                    p.Marca,
+                    p.Precio_venta,
+                    dp.Cantidad_Cotizada,
+                    c.Folio,
+                    c.Fecha
+                FROM DetallePiezas dp
+                JOIN Cotizaciones c ON dp.IDCotizacion = c.IDCotizacion
+                JOIN Piezas p ON dp.IDPieza = p.IDPieza
+                WHERE c.IDVehiculo = @IDVehiculo
+            `);
+
+        res.json(result.recordset);
+    } catch (error) {
+        console.error("Error al obtener piezas por vehículo:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+});
+
+// Obtener estatus de cotización
+app.get("/obtenerEstatusCotizacion", async (req, res) => {
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request().query("SELECT IDEstatus, Estatus FROM EstatusCotizacion");
+        res.json(result.recordset);
+    } catch (error) {
+        console.error("Error al obtener estatus de cotización:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+});
+
+server.listen(puerto, () => console.log(`Servidor corriendo en http://127.0.0.1:${puerto}`));
+}
+
+iniciarServidor();
+
+app.get("/", (req, res) => {
+    res.send("servidor funcionando correctamente");
+});
+
+function encontrarPuertoLibre(rangoInicio, rangoFin) {
+    return new Promise((resolve) => {
+        const server = net.createServer();
+        server.listen(0, () => {
+            const puertoLibre = server.address().port;
+            server.close(() => resolve(puertoLibre));
+        });
+        server.on("error", () => resolve(encontrarPuertoLibre(rangoInicio, rangoFin)));
+    });
+}
+
+/*(async () => {
+    const PORT = await encontrarPuertoLibre(4000, 9000);
+    app.listen(PORT, () => {
+        console.log(`Servidor corriendo en http://127.0.0.1:${PORT}`);
+
+        // Guardar el puerto en config.json para que el frontend lo lea
+        fs.writeFileSync("config.json", JSON.stringify({ puerto: PORT }, null, 2));
+    });
+})();*/
+
+// APARTADO PARA EL DIAGNOSTICO
+app.get("/obtenerDiagnostico", async (req, res) => {
+    console.log("Ruta /obtenerDiagnostico llamada con folio:", req.query.folio);
+    const { folio } = req.query;
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input("folio", sql.VarChar, folio)
+            .query(`
+                SELECT 
+                    i.*,
+                    ISNULL(co.Mano_Obra, 0) AS Mano_Obra,
+                    c.Nombre,
+                    c.Apellido,
+                    v.Placas,
+                    v.Marca,
+                    v.Linea_Vehiculo,
+                    v.Modelo,
+                    v.Color,
+                    v.Kilometraje,
+                    v.Testigos,
+                    co.Falla AS Problema,
+                    co.IDCotizacion
+                FROM Ingresos i
+                INNER JOIN Clientes c ON i.IDCliente = c.IDCliente
+                INNER JOIN Vehiculos v ON i.IDVehiculo = v.IDVehiculo
+                LEFT JOIN Cotizaciones co ON i.IDCotizacion = co.IDCotizacion
+                WHERE i.Folio = @folio
+            `);
+        if (result.recordset.length === 0) {
+            return res.status(404).json({ error: "Folio no encontrado" });
+        }
+
+        res.json(result.recordset[0]);
+    } catch (error) {
+        console.error("Error al obtener diagnóstico:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+});
+app.get("/buscarPiezas", async (req, res) => {
+    const { filtro } = req.query;
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input("filtro", sql.NVarChar, `%${filtro}%`)
+            .query(`
+                SELECT IDPieza, Nombre_pieza, Precio_venta 
+                FROM Piezas 
+                WHERE Nombre_pieza LIKE @filtro
+            `);
+        res.json(result.recordset);
+    } catch (error) {
+        console.error("Error al buscar piezas:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+});
+// Verificar stock de pieza
+app.get("/verificarStockPieza", async (req, res) => {
+    const { id, cantidad } = req.query;
+    
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input("IDPieza", sql.Int, id)
+            .query("SELECT Cantidad FROM Piezas WHERE IDPieza = @IDPieza");
+        
+        if (result.recordset.length === 0) {
+            return res.json({ suficiente: false, stock: 0 });
+        }
+        
+        const stockActual = result.recordset[0].Cantidad || 0;
+        const suficiente = stockActual >= cantidad;
+        
+        res.json({ suficiente, stock: stockActual });
+    } catch (error) {
+        console.error("Error al verificar stock:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+});
+app.post("/guardarDiagnostico", async (req, res) => {
+    const { folio, diagnostico, piezas, total, ManoObra, IDCotizacion } = req.body;
+
+    if (!folio || !diagnostico) {
+        return res.status(400).json({ 
+            error: "Folio y diagnóstico son obligatorios",
+        });
+    }
+
+    const pool = await poolPromise;
+    const transaction = new sql.Transaction(pool);
+
+    try {
+        await transaction.begin();
+
+        // 1. Obtener el ingreso actual para verificar si ya tiene una cotización asociada
+        const ingresoResult = await transaction.request()
+            .input("folio", sql.VarChar, folio)
+            .query("SELECT IDIngreso, IDCotizacion FROM Ingresos WHERE Folio = @folio");
+        
+        if (ingresoResult.recordset.length === 0) {
+            throw new Error("No se encontró el ingreso con el folio proporcionado");
+        }
+
+        const { IDIngreso, IDCotizacion: existingIDCotizacion } = ingresoResult.recordset[0];
+        let IDCotizacionActual = existingIDCotizacion;
+
+        // 2. Actualizar cotización relacionada si es necesario
+        if (IDCotizacion && IDCotizacion !== IDCotizacionActual) {
+            console.log("Actualizando cotización relacionada:", IDCotizacion);
+            await transaction.request()
+                .input("IDIngreso", sql.Int, IDIngreso)
+                .input("IDCotizacion", sql.Int, IDCotizacion)
+                .query("UPDATE Ingresos SET IDCotizacion = @IDCotizacion WHERE IDIngreso = @IDIngreso");
+            
+            IDCotizacionActual = IDCotizacion;
+        }
+
+        // 3. Actualizar Mano de Obra en cotización si existe
+        if (IDCotizacionActual) {
+            await transaction.request()
+                .input("IDCotizacion", sql.Int, IDCotizacionActual)
+                .input("ManoObra", sql.Decimal(18,2), ManoObra || 0)
+                .query(`
+                    UPDATE Cotizaciones 
+                    SET Mano_Obra = @ManoObra 
+                    WHERE IDCotizacion = @IDCotizacion
+                `);
+        }
+
+        // 4. Actualizar Diagnóstico y Total en Ingresos
+        await transaction.request()
+            .input("folio", sql.VarChar, folio)
+            .input("diagnostico", sql.NVarChar, diagnostico)
+            .input("total", sql.Decimal(18, 2), total || 0)
+            .query(`
+                UPDATE Ingresos 
+                SET Diagnostico = @diagnostico, Total = @total 
+                WHERE Folio = @folio
+            `);
+
+        // 4. Manejo de piezas - SECCIÓN CRÍTICA
+        if (piezas && piezas.length > 0) {
+            console.log("Procesando", piezas.length, "piezas");
+            
+            // Eliminar registros existentes
+            await transaction.request()
+                .input("IDIngreso", sql.Int, IDIngreso)
+                .query("DELETE FROM DetallePiezas WHERE IDIngreso = @IDIngreso");
+
+            // Insertar nuevas piezas
+            for (const [index, pieza] of piezas.entries()) {
+                try {
+                    console.log(`Procesando pieza ${index + 1}:`, pieza);
+                    
+                    if (!pieza.IDPieza || !pieza.cantidad || !pieza.precio) {
+                        console.error("Pieza inválida en posición", index, ":", pieza);
+                        continue;
+                    }
+
+                    // Insertar en DetallePiezas
+                    await transaction.request()
+                        .input("IDIngreso", sql.Int, IDIngreso)
+                        .input("IDCotizacion", sql.Int, IDCotizacionActual)
+                        .input("IDPieza", sql.Int, pieza.IDPieza)
+                        .input("Cantidad_Cotizada", sql.Int, 0) // Valor temporal
+                        .input("Cantidad_Usada", sql.Int, pieza.cantidad)
+                        .input("Precio", sql.Decimal(18, 2), pieza.precio)
+                        .query(`
+                            INSERT INTO DetallePiezas (
+                                IDIngreso,
+                                IDCotizacion,
+                                IDPieza,
+                                Cantidad_Cotizada,
+                                Cantidad_Usada,
+                                Precio
+                            ) VALUES (
+                                @IDIngreso,
+                                @IDCotizacion,
+                                @IDPieza,
+                                @Cantidad_Cotizada,
+                                @Cantidad_Usada,
+                                @Precio
+                            )`);
+
+                    // Actualizar inventario
+                    await transaction.request()
+                        .input("IDPieza", sql.Int, pieza.IDPieza)
+                        .input("Cantidad", sql.Int, pieza.cantidad)
+                        .query(`
+                            UPDATE Piezas 
+                            SET Cantidad = ISNULL(Cantidad, 0) - @Cantidad 
+                            WHERE IDPieza = @IDPieza
+                        `);
+
+                    } catch (error) {
+                        console.error(`Error en pieza ${index + 1}:`, error.message);
+                        // Continuar procesando las demás piezas
+                    }
+            }
+        }
+        await transaction.commit();
+        console.log("Transacción completada exitosamente");
+        res.json({ 
+            success: true, 
+            message: "Diagnóstico guardado correctamente",
+            detalles: {
+                piezas_procesadas: piezas?.length || 0
+            }
+        });
+    } catch (error) {
+        await transaction.rollback();
+        console.error("Error general en transacción:", error.message);
+        res.status(500).json({ 
+            error: "Error al guardar diagnóstico",
+            detalle: error.message
+        });
+    }
+});
+
+app.get("/obtenerFoliosDelDia", async (req, res) => {
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .query(`
+                SELECT Folio
+                FROM Ingresos
+                WHERE CAST(FechaIngreso AS DATE) = CAST(GETDATE() AS DATE)
+                ORDER BY FechaIngreso DESC
+            `);
+
+        const folios = result.recordset.map(row => row.Folio);
+        res.json(folios);
+    } catch (error) {
+        console.error("Error al obtener los folios del día:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+});
+app.post("/registrar-cliente", async (req, res) => {
+    try {
+        const { Nombre, Apellido, Domicilio, Correo, Telefonos, Tipo } = req.body;
+
+        if (!Nombre || !Apellido || !Domicilio || !Telefonos || Telefonos.length === 0 || !Tipo) {
+            return res.status(400).json({ error: "Todos los campos son obligatorios, incluyendo al menos un teléfono." });
+        }
+
+        const pool = await poolPromise;
+        const transaction = pool.transaction();
+
+        await transaction.begin(); // Iniciar transacción
+
+        //  Insertar el cliente en la tabla Clientes**
+        const result = await transaction.request()
+            .input("Nombre", sql.NVarChar, Nombre)
+            .input("Apellido", sql.NVarChar, Apellido)
+            .input("Domicilio", sql.NVarChar, Domicilio)
+            .input("Correo", sql.NVarChar, Correo || null)
+            .query(`
+                INSERT INTO Clientes (Nombre, Apellido, Domicilio, Correo) 
+                OUTPUT INSERTED.IDCliente
+                VALUES (@Nombre, @Apellido, @Domicilio, @Correo)
+            `);
+
+        const IDCliente = result.recordset[0].IDCliente;
+
+        // Insertar los teléfonos en la tabla Telefono**
+        for (let Telefono of Telefonos) {
+            await transaction.request()
+                .input("IDCliente", sql.Int, IDCliente)
+                .input("Telefono", sql.NVarChar, Telefono.trim())
+                .input("Tipo", sql.VarChar, Tipo.trim())
+                .query(`
+                    INSERT INTO Telefono (IDCliente, Telefono, Tipo) 
+                    VALUES (@IDCliente, @Telefono, @Tipo)
+                `);
+        }
+
+        await transaction.commit();
+
+        res.status(201).json({ message: "Cliente registrado correctamente", IDCliente });
+
+    } catch (error) {
+        console.error("Error al registrar cliente:", error);
+        res.status(500).json({ error: "Error al registrar cliente" });
+    }
+});
+
+// Ruta para registrar un nuevo vehículo
+app.post("/registrar-vehiculo", async (req, res) => {
+    try {
+        const { IDCliente, Placas, Marca, Linea_Vehiculo, Modelo, Color, Kilometraje, Testigos } = req.body;
+
+        if (!IDCliente || !Placas || !Marca || !Linea_Vehiculo || !Modelo || !Color || Kilometraje === undefined || !Testigos) {
+            return res.status(400).json({ error: "Todos los campos son obligatorios." });
+        }
+
+        const pool = await poolPromise;
+
+        await pool.request()
+            .input("IDCliente", sql.Int, IDCliente)
+            .input("Placas", sql.NVarChar, Placas)
+            .input("Marca", sql.NVarChar, Marca)
+            .input("Linea_Vehiculo", sql.NVarChar, Linea_Vehiculo)
+            .input("Modelo", sql.NVarChar, Modelo)
+            .input("Color", sql.NVarChar, Color)
+            .input("Kilometraje", sql.Int, Kilometraje)
+            .input("Testigos", sql.NVarChar, Testigos)
+            .query(`
+                INSERT INTO Vehiculos (IDCliente, Placas, Marca, Linea_Vehiculo, Modelo, Color, Kilometraje, Testigos) 
+                VALUES (@IDCliente, @Placas, @Marca, @Linea_Vehiculo, @Modelo, @Color, @Kilometraje, @Testigos)
+            `);
+
+        res.status(201).json({ message: "Vehículo registrado correctamente" });
+
+    } catch (error) {
+        console.error("Error al registrar vehículo:", error);
+        res.status(500).json({ error: "Error en el servidor al registrar el vehículo" });
+    }
+});
+
+// OBTENER PIEZAS CON FILTRO POR NOMBRE O SKU
+app.get("/obtenerPiezas", async (req, res) => {
+    try {
+        const { filtro } = req.query; // Puede ser nombre o SKU
+        const pool = await poolPromise;
+
+        let query = `
+            SELECT IDPieza, Nombre_pieza, SKU, Marca, Precio_venta, Cantidad, 
+                CAST(Foto AS VARBINARY(MAX)) AS Foto
+            FROM Piezas
+        `;
+
+        if (filtro && filtro.trim() !== "") {
+            query += ` WHERE Nombre_pieza LIKE @filtro OR SKU LIKE @filtro`;
+        }
+
+        const result = await pool.request()
+            .input("filtro", sql.NVarChar, `%${filtro}%`)
+            .query(query);
+
+        // Convertir imagen a base64 para enviar al frontend
+        const piezas = result.recordset.map(pieza => ({
+            ...pieza,
+            Foto: pieza.Foto ? pieza.Foto.toString("base64") : null
+        }));
+
+        res.json(piezas);
+    } catch (error) {
+        console.error("Error al obtener piezas:", error);
+        res.status(500).json({ error: "Error en el servidor al obtener piezas" });
+    }
+});
+
+// OBTENER LISTA DE ESTATUS DE PIEZAS
+app.get("/obtenerEstatusPiezas", async (req, res) => {
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request().query("SELECT IDEstatus, Estatus FROM EstatusPieza");
+
+        res.json(result.recordset);
+    } catch (error) {
+        console.error("Error al obtener estatus de piezas:", error);
+        res.status(500).json({ error: "Error en el servidor al obtener estatus" });
+    }
+});
+
+// REGISTRAR UNA NUEVA PIEZA
+app.post("/registrarPieza", upload.single("Foto"), async (req, res) => {
+    let transaction; // Crear una nueva transacción
+    try {
+        const { Nombre_pieza, SKU, Costo_compra, Precio_venta, Cantidad, Marca} = req.body;
+        const Foto = req.file ? req.file.buffer : null;
+
+        if (!Nombre_pieza || !SKU || !Costo_compra || !Precio_venta || !Cantidad || !Marca) {
+            return res.status(400).json({ error: "Todos los campos son obligatorios." });
+        }
+
+        const pool = await poolPromise;
+        transaction = new sql.Transaction(pool);
+        await transaction.begin(); 
+        
+        const request = new sql.Request(transaction);
+
+        // Insertar el estatus en la tabla EstatusPieza
+    /*   const estatusResult = await request
+            .input('Estatus', sql.VarChar, Estatus) // Define el parámetro @Estatus
+            .query(`
+                INSERT INTO EstatusPieza (Estatus) 
+                OUTPUT INSERTED.IDEstatus
+                VALUES (@Estatus)
+            `);
+
+        const IDEstatus = estatusResult.recordset[0].IDEstatus; // Obtener el IDEstatus generado */
+
+        // Insertar la pieza en la tabla Piezas
+        await request
+            .input('Nombre_pieza', sql.VarChar, Nombre_pieza)
+            .input('SKU', sql.VarChar, SKU)
+            .input('Marca', sql.NVarChar, Marca)
+            .input('Costo_compra', sql.Decimal(18, 2), Costo_compra)
+            .input('Precio_venta', sql.Decimal(18, 2), Precio_venta)
+            .input('Cantidad', sql.Int, Cantidad)
+            .input('Foto', sql.VarBinary, Foto)
+            .query(`
+                INSERT INTO Piezas (Nombre_pieza, SKU, Marca, Costo_compra, Precio_venta, Cantidad, Foto) 
+                VALUES (@Nombre_pieza, @SKU, @Marca, @Costo_compra, @Precio_venta, @Cantidad, @Foto)
+            `);
+
+        await transaction.commit();
+        res.status(201).json({ message: 'Pieza registrada correctamente' });
+    } catch (error) {
+        // Revertir la transacción en caso de error
+        if (transaction) await transaction.rollback();
+        console.error('Error al registrar pieza:', error);
+        res.status(500).json({ error: 'Error en el servidor al registrar la pieza' });
+    }
+});
+// Buscar pieza por SKU
+app.get("/buscarPiezaPorSKU", async (req, res) => {
+    const { sku } = req.query;
+
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input("sku", sql.VarChar, sku)
+            .query("SELECT Nombre_pieza, Costo_compra, Precio_venta FROM Piezas WHERE SKU = @sku");
+
+        if (result.recordset.length > 0) {
+            res.json(result.recordset[0]);
+        } else {
+            res.status(404).json({ error: "Pieza no encontrada" });
+        }
+    } catch (error) {
+        console.error("Error al buscar pieza por SKU:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+});
+
+// Actualizar existencias, costo_compra y precio_venta
+app.post("/actualizarExistencias", async (req, res) => {
+    const { SKU, cantidad, costo_compra, precio_venta } = req.body;
+    console.log("Datos recibidos:", { SKU, cantidad, costo_compra, precio_venta });
+
+    try {
+        const pool = await poolPromise;
+        const request = pool.request()
+            .input("SKU", sql.NVarChar, SKU);
+
+        let query = "UPDATE Piezas SET ";
+
+        if (cantidad !== null) {
+            query += "Cantidad = ISNULL(Cantidad, 0) + @cantidad, ";
+            request.input("cantidad", sql.Int, cantidad);
+        }
+
+        if (costo_compra !== null) {
+            query += "Costo_compra = @costo_compra, ";
+            request.input("costo_compra", sql.Decimal(18, 2), costo_compra);
+        }
+
+        if (precio_venta !== null) {
+            query += "Precio_venta = @precio_venta, ";
+            request.input("precio_venta", sql.Decimal(18, 2), precio_venta);
+        }
+
+        // Eliminar la última coma y espacio
+        query = query.slice(0, -2);
+
+        query += " WHERE SKU = @SKU";
+        console.log("Consulta SQL:", query);
+
+        await request.query(query);
+
+        res.status(200).json({ message: "Datos actualizados correctamente" });
+    } catch (error) {
+        console.error("Error al actualizar datos:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+});
+// Obtener sucursales para el select
+app.get("/obtener-sucursales", async (req, res) => {
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request().query("SELECT IDSucursal, Nombre FROM Sucursales");
+        res.json(result.recordset);
+    } catch (error) {
+        console.error("Error al obtener sucursales:", error);
+        res.status(500).json({ error: "Error al obtener sucursales" });
+    }
+});
+
+// Registrar nuevo asesor
+app.post("/registrar-asesor", async (req, res) => {
+    const { nombre, apellido, sucursalId } = req.body;
+    
+    if (!nombre || !apellido || !sucursalId) {
+        return res.status(400).json({ error: "Todos los campos son obligatorios" });
+    }
+    
+    try {
+        const pool = await poolPromise;
+        await pool.request()
+            .input("nombre", sql.VarChar, nombre)
+            .input("apellido", sql.VarChar, apellido)
+            .input("sucursalId", sql.Int, sucursalId)
+            .query("INSERT INTO Asesor (Nombre, Apellido, IDSucursal) VALUES (@nombre, @apellido, @sucursalId)");
+        
+        res.json({ message: "Asesor registrado correctamente" });
+    } catch (error) {
+        console.error("Error al registrar asesor:", error);
+        res.status(500).json({ error: "Error al registrar asesor" });
+    }
+});
+// Buscar ingresos para entrega
+app.get("/buscarIngresosParaEntrega", async (req, res) => {
+    const { filtro } = req.query;
+    
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input("filtro", sql.NVarChar, `%${filtro}%`)
+            .query(`
+                SELECT 
+                    i.IDIngreso, i.Folio, i.FechaIngreso, i.Diagnostico, i.Total, i.IDEntrega,
+                    c.Nombre, c.Apellido,
+                    v.Placas, v.Marca, v.Linea_Vehiculo, v.Modelo,
+                    (SELECT COUNT(*) FROM DetallePiezas dp 
+                    WHERE dp.IDIngreso = i.IDIngreso OR dp.IDCotizacion = i.IDCotizacion) AS TotalPiezas
+                FROM Ingresos i
+                INNER JOIN Clientes c ON i.IDCliente = c.IDCliente
+                INNER JOIN Vehiculos v ON i.IDVehiculo = v.IDVehiculo
+                WHERE i.Folio LIKE @filtro 
+                OR c.Nombre LIKE @filtro 
+                OR c.Apellido LIKE @filtro
+                OR v.Placas LIKE @filtro
+                OR v.Marca LIKE @filtro
+                ORDER BY i.FechaIngreso DESC
+            `);
+            
+        res.json(result.recordset);
+    } catch (error) {
+        console.error("Error al buscar ingresos para entrega:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+});
+
+// Obtener piezas por ingreso
+app.get("/obtenerPiezasPorIngreso", async (req, res) => {
+    const { IDIngreso } = req.query;
+    
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input("IDIngreso", sql.Int, IDIngreso)
+            .query(`
+                SELECT 
+                    p.Nombre_pieza,
+                    p.SKU,
+                    p.Marca,
+                    dp.Cantidad_Cotizada,
+                    dp.Cantidad_Usada,
+                    dp.Precio
+                FROM DetallePiezas dp
+                JOIN Piezas p ON dp.IDPieza = p.IDPieza
+                WHERE dp.IDIngreso = @IDIngreso
+                OR dp.IDCotizacion IN (
+                    SELECT IDCotizacion 
+                    FROM Ingresos 
+                    WHERE IDIngreso = @IDIngreso
+                )
+            `);
+            
+        res.json(result.recordset);
+    } catch (error) {
+        console.error("Error al obtener piezas por ingreso:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+});
+
+// Registrar entrega
+app.post("/registrarEntrega", async (req, res) => {
+    const { IDIngreso } = req.body;
+    
+    if (!IDIngreso) {
+        return res.status(400).json({ error: "ID de ingreso es requerido" });
+    }
+    
+    const pool = await poolPromise;
+    const transaction = new sql.Transaction(pool);
+    
+    try {
+        await transaction.begin();
+        
+        // 1. Crear registro en la tabla Entrega
+        const entregaResult = await transaction.request()
+            .query(`
+                INSERT INTO Entrega (Fecha)
+                OUTPUT INSERTED.IDEntrega
+                VALUES (GETDATE())
+            `);
+            
+        const IDEntrega = entregaResult.recordset[0].IDEntrega;
+        
+        // 2. Actualizar el ingreso con el ID de entrega
+        await transaction.request()
+            .input("IDIngreso", sql.Int, IDIngreso)
+            .input("IDEntrega", sql.Int, IDEntrega)
+            .query(`
+                UPDATE Ingresos
+                SET IDEntrega = @IDEntrega
+                WHERE IDIngreso = @IDIngreso
+            `);
+            
+        await transaction.commit();
+        res.json({ success: true, message: "Entrega registrada correctamente" });
+    } catch (error) {
+        await transaction.rollback();
+        console.error("Error al registrar entrega:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+});
