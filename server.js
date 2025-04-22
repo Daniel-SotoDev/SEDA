@@ -792,7 +792,7 @@ app.post("/guardarDiagnostico", async (req, res) => {
     try {
         await transaction.begin();
 
-        // 1. Obtener el ingreso actual para verificar si ya tiene una cotización asociada
+        //Obtener el ingreso actual para verificar si ya tiene una cotización asociada
         const ingresoResult = await transaction.request()
             .input("folio", sql.VarChar, folio)
             .query("SELECT IDIngreso, IDCotizacion FROM Ingresos WHERE Folio = @folio");
@@ -804,7 +804,7 @@ app.post("/guardarDiagnostico", async (req, res) => {
         const { IDIngreso, IDCotizacion: existingIDCotizacion } = ingresoResult.recordset[0];
         let IDCotizacionActual = existingIDCotizacion;
 
-        // 2. Actualizar cotización relacionada si es necesario
+        // Actualizar cotización relacionada si es necesario
         if (IDCotizacion && IDCotizacion !== IDCotizacionActual) {
             console.log("Actualizando cotización relacionada:", IDCotizacion);
             await transaction.request()
@@ -815,7 +815,7 @@ app.post("/guardarDiagnostico", async (req, res) => {
             IDCotizacionActual = IDCotizacion;
         }
 
-        // 3. Actualizar Mano de Obra en cotización si existe
+        // Actualizar Mano de Obra en cotización si existe
         if (IDCotizacionActual) {
             await transaction.request()
                 .input("IDCotizacion", sql.Int, IDCotizacionActual)
@@ -827,7 +827,7 @@ app.post("/guardarDiagnostico", async (req, res) => {
                 `);
         }
 
-        // 4. Actualizar Diagnóstico y Total en Ingresos
+        // Actualizar Diagnostico y Total en Ingresos
         await transaction.request()
             .input("folio", sql.VarChar, folio)
             .input("diagnostico", sql.NVarChar, diagnostico)
@@ -838,7 +838,7 @@ app.post("/guardarDiagnostico", async (req, res) => {
                 WHERE Folio = @folio
             `);
 
-        // 4. Manejo de piezas - SECCIÓN CRÍTICA
+        //Manejo de piezas - ojo aqui aque se cae --ya lo corregi
         if (piezas && piezas.length > 0) {
             console.log("Procesando", piezas.length, "piezas");
             
@@ -862,7 +862,7 @@ app.post("/guardarDiagnostico", async (req, res) => {
                         .input("IDIngreso", sql.Int, IDIngreso)
                         .input("IDCotizacion", sql.Int, IDCotizacionActual)
                         .input("IDPieza", sql.Int, pieza.IDPieza)
-                        .input("Cantidad_Cotizada", sql.Int, 0) // Valor temporal
+                        .input("Cantidad_Cotizada", sql.Int, 0)
                         .input("Cantidad_Usada", sql.Int, pieza.cantidad)
                         .input("Precio", sql.Decimal(18, 2), pieza.precio)
                         .query(`
@@ -894,7 +894,7 @@ app.post("/guardarDiagnostico", async (req, res) => {
 
                     } catch (error) {
                         console.error(`Error en pieza ${index + 1}:`, error.message);
-                        // Continuar procesando las demás piezas
+                        // Continuar procesando las piezas
                     }
             }
         }
@@ -946,9 +946,9 @@ app.post("/registrar-cliente", async (req, res) => {
         const pool = await poolPromise;
         const transaction = pool.transaction();
 
-        await transaction.begin(); // Iniciar transacción
+        await transaction.begin(); 
 
-        //  Insertar el cliente en la tabla Clientes**
+        //  Insertar el cliente
         const result = await transaction.request()
             .input("Nombre", sql.NVarChar, Nombre)
             .input("Apellido", sql.NVarChar, Apellido)
@@ -962,7 +962,6 @@ app.post("/registrar-cliente", async (req, res) => {
 
         const IDCliente = result.recordset[0].IDCliente;
 
-        // Insertar los teléfonos en la tabla Telefono**
         for (let Telefono of Telefonos) {
             await transaction.request()
                 .input("IDCliente", sql.Int, IDCliente)
@@ -984,7 +983,6 @@ app.post("/registrar-cliente", async (req, res) => {
     }
 });
 
-// Ruta para registrar un nuevo vehículo
 app.post("/registrar-vehiculo", async (req, res) => {
     try {
         const { IDCliente, Placas, Marca, Linea_Vehiculo, Modelo, Color, Kilometraje, Testigos } = req.body;
@@ -1017,7 +1015,7 @@ app.post("/registrar-vehiculo", async (req, res) => {
     }
 });
 
-// OBTENER PIEZAS CON FILTRO POR NOMBRE O SKU
+
 app.get("/obtenerPiezas", async (req, res) => {
     try {
         const { filtro } = req.query; // Puede ser nombre o SKU
@@ -1050,7 +1048,6 @@ app.get("/obtenerPiezas", async (req, res) => {
     }
 });
 
-// OBTENER LISTA DE ESTATUS DE PIEZAS
 app.get("/obtenerEstatusPiezas", async (req, res) => {
     try {
         const pool = await poolPromise;
@@ -1065,7 +1062,7 @@ app.get("/obtenerEstatusPiezas", async (req, res) => {
 
 // REGISTRAR UNA NUEVA PIEZA
 app.post("/registrarPieza", upload.single("Foto"), async (req, res) => {
-    let transaction; // Crear una nueva transacción
+    let transaction;
     try {
         const { Nombre_pieza, SKU, Costo_compra, Precio_venta, Cantidad, Marca} = req.body;
         const Foto = req.file ? req.file.buffer : null;
@@ -1162,7 +1159,7 @@ app.post("/actualizarExistencias", async (req, res) => {
             request.input("precio_venta", sql.Decimal(18, 2), precio_venta);
         }
 
-        // Eliminar la última coma y espacio
+        // Eliminar la ultima coma y espacio
         query = query.slice(0, -2);
 
         query += " WHERE SKU = @SKU";
@@ -1290,7 +1287,7 @@ app.post("/registrarEntrega", async (req, res) => {
     try {
         await transaction.begin();
         
-        // 1. Crear registro en la tabla Entrega
+        // Crear registro en la tabla Entrega
         const entregaResult = await transaction.request()
             .query(`
                 INSERT INTO Entrega (Fecha)
@@ -1300,7 +1297,7 @@ app.post("/registrarEntrega", async (req, res) => {
             
         const IDEntrega = entregaResult.recordset[0].IDEntrega;
         
-        // 2. Actualizar el ingreso con el ID de entrega
+        // Actualizar el ingreso con el ID de entrega
         await transaction.request()
             .input("IDIngreso", sql.Int, IDIngreso)
             .input("IDEntrega", sql.Int, IDEntrega)
@@ -1404,7 +1401,7 @@ app.get("/generar-pdf-diagnostico", async (req, res) => {
             .text(`Kilometraje: ${diagnostico.Kilometraje} km`, 300, 220)
             .text(`Testigos: ${diagnostico.Testigos || 'Ninguno'}`, 300, 235);
 
-        // Diagnóstico
+        // Diagnostico
         doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(12)
             .text('Problema reportado:', 50, 265)
             .font('Helvetica').fillColor('#2c3e50')
@@ -1554,7 +1551,7 @@ app.get("/generar-pdf-cotizacion", async (req, res) => {
             .text(cotizacion.Domicilio, 50, 150)
             .text(cotizacion.Correo || 'N/A', 50, 165);
 
-        // Vehículo
+        // Vehiculo
         doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(12)
             .text('Vehículo:', 50, 200);
         doc.font('Helvetica').fillColor('#2c3e50').fontSize(10)
@@ -1683,14 +1680,14 @@ app.get("/generar-pdf-entrega", async (req, res) => {
             .text('Recibo de Entrega de Vehículo', 50, 40)
             .image('./img/TF_LOGO.png', 450, 10, { width: 80 });
 
-        // Información de la sucursal
+        // Informacion de la sucursal
         doc.fontSize(9).fillColor('#7f8c8d')
             .text(`${ingreso.Sucursal} | ${ingreso.SucursalDireccion} | Tel: ${ingreso.SucursalTelefono}`, 50, 70)
             .fillColor(secondaryColor).fontSize(11)
             .text(`Folio: ${folio}`, 50, 90)
             .text(`Fecha Entrega: ${new Date().toLocaleDateString()}`, { align: 'right' });
 
-        // Sección Cliente y Asesor
+        // Seccion Cliente y Asesor
         doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(12)
             .text('Cliente:', 50, 120)
             .text('Asesor:', 300, 120);
@@ -1718,7 +1715,7 @@ app.get("/generar-pdf-entrega", async (req, res) => {
         doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(14)
             .text('Detalle del Servicio', 50, 40);
 
-        // Diagnóstico
+        // Diagnostico
         doc.fontSize(12).fillColor(primaryColor)
             .text('Diagnóstico Inicial Y Final:', 50, 70)
             .font('Helvetica').fillColor('#2c3e50').fontSize(10)
@@ -1782,16 +1779,17 @@ app.get('/generar-reporte-ventas', async (req, res) => {
         const { tipo, fechaInicio, fechaFin, usuario } = req.query;
         const pool = await poolPromise;
 
-         // Validar si el usuario es admin
+        // Validar si el usuario es admin
         const rolResult = await pool.request()
-        .input("usuario", sql.VarChar, usuario)
-        .query("SELECT rol FROM usuarios WHERE usuario = @usuario");
+            .input("usuario", sql.VarChar, usuario)
+            .query("SELECT rol FROM usuarios WHERE usuario = @usuario");
 
-    const userData = rolResult.recordset[0];
-    if (!userData || userData.rol !== 'admin') {
-        return res.status(403).send("Acceso no autorizado");
-    }
+        const userData = rolResult.recordset[0];
+        if (!userData || userData.rol !== 'admin') {
+            return res.status(403).send("Acceso no autorizado");
+        }
 
+        // Consulta principal mejorada
         const ingresosResult = await pool.request()
             .input('startDate', sql.Date, new Date(fechaInicio))
             .input('endDate', sql.Date, new Date(fechaFin))
@@ -1806,7 +1804,10 @@ app.get('/generar-reporte-ventas', async (req, res) => {
                     c.Apellido,
                     v.Placas,
                     v.Marca,
-                    v.Modelo
+                    v.Modelo,
+                    (SELECT SUM(dp.Cantidad_Usada * dp.Precio) 
+                        FROM DetallePiezas dp 
+                        WHERE dp.IDIngreso = i.IDIngreso) AS Total_Piezas
                 FROM Ingresos i
                 INNER JOIN Clientes c ON i.IDCliente = c.IDCliente
                 INNER JOIN Vehiculos v ON i.IDVehiculo = v.IDVehiculo
@@ -1822,121 +1823,147 @@ app.get('/generar-reporte-ventas', async (req, res) => {
 
         const doc = new PDFDocument({ margin: 40 });
         res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `inline; filename=reporte_${tipo}.pdf`);
+        res.setHeader('Content-Disposition', `inline; filename=reporte_${tipo}_${fechaInicio}_a_${fechaFin}.pdf`);
         doc.pipe(res);
 
-        // Encabezado
+        // Encabezado mejorado
         doc.image('./img/TF_LOGO.png', 40, 15, { width: 60 })
             .font('Helvetica-Bold')
             .fontSize(16)
+            .fillColor('#2c3e50')
             .text('TRANSMISIONES FRÍAS', 110, 20)
             .fontSize(10)
             .fillColor('#555555')
             .text(`Reporte: ${tipo.toUpperCase()}`, 110, 40)
-            .text(`${fechaInicio} - ${fechaFin}`, 110, 55)
+            .text(`Del ${new Date(fechaInicio).toLocaleDateString()} al ${new Date(fechaFin).toLocaleDateString()}`, 110, 55)
+            .text(`Generado por: ${usuario}`, 110, 70)
             .moveDown(2);
 
-        // Estilos tipo tabla Excel
-        const headerColor = '#2c3e50';
-        const altRowColor = '#f1f1f1';
-        const defaultColor = '#ffffff';
-        let yPosition = 100;
+        // Configuracion de columnas
+        const columns = [
+            { name: 'FOLIO', width: 80, x: 45 },
+            { name: 'CLIENTE', width: 130, x: 130 },
+            { name: 'VEHÍCULO', width: 130, x: 265 },
+            { name: 'MANO OBRA', width: 80, x: 400, align: 'right' },
+            { name: 'TOTAL', width: 80, x: 485, align: 'right' }
+        ];
 
-        const colPositions = {
-            folio: 45,
-            cliente: 100,
-            vehiculo: 200,
-            manoObra: 370,
-            total: 450
-        };
+        let yPosition = 120;
 
-        // Encabezados
+        // Encabezados de tabla
         doc.font('Helvetica-Bold')
             .fontSize(10)
             .fillColor('#ffffff')
             .rect(40, yPosition, 520, 20)
-            .fill(headerColor)
-            .text('FOLIO', colPositions.folio, yPosition + 5)
-            .text('CLIENTE', colPositions.cliente, yPosition + 5)
-            .text('VEHÍCULO', colPositions.vehiculo, yPosition + 5)
-            .text('MANO OBRA', colPositions.manoObra, yPosition + 5)
-            .text('TOTAL', colPositions.total, yPosition + 5);
+            .fill('#dbd5c9');
+
+        columns.forEach(col => {
+            doc.text(col.name, col.x, yPosition + 5, {
+                width: col.width,
+                align: col.align || 'left'
+            });
+        });
 
         yPosition += 25;
 
+        // Variables para totales
         let totalGeneral = 0;
         let totalManoObra = 0;
+        let totalPiezas = 0;
 
-        doc.font('Helvetica').fontSize(9);
+        // Procesar cada registro
+        for (let i = 0; i < ingresosResult.recordset.length; i++) {
+            const ingreso = ingresosResult.recordset[i];
+            const rowColor = i % 2 === 0 ? '#ffffff' : '#f8f9fa';
 
-        for (let index = 0; index < ingresosResult.recordset.length; index++) {
-            const ingreso = ingresosResult.recordset[index];
+            // Validar y formatear valores
+            const manoObra = Number(ingreso.Mano_Obra) || 0;
+            const totalPiezasIngreso = Number(ingreso.Total_Piezas) || 0;
+            const totalIngreso = Number(ingreso.Total) || 0;
 
-            const manoObra = typeof ingreso.Mano_Obra === 'number' ? ingreso.Mano_Obra : 0;
-            const totalIngreso = typeof ingreso.Total === 'number' ? ingreso.Total : 0;
-            const rowColor = index % 2 === 0 ? defaultColor : altRowColor;
-
-            // Fondo fila
+            // Fondo de fila
             doc.rect(40, yPosition - 2, 520, 20).fill(rowColor);
 
-            doc.fillColor('#2c3e50')
-                .text(ingreso.Folio ?? 'N/A', colPositions.folio, yPosition)
-                .text(`${ingreso.Nombre ?? ''} ${ingreso.Apellido ?? ''}`.trim(), colPositions.cliente, yPosition)
-                .text(`${ingreso.Marca ?? ''} ${ingreso.Modelo ?? ''} (${ingreso.Placas ?? 'N/A'})`, colPositions.vehiculo, yPosition)
-                .text(`$${manoObra.toFixed(2)}`, colPositions.manoObra, yPosition)
-                .text(`$${totalIngreso.toFixed(2)}`, colPositions.total, yPosition);
+            // Datos principales
+            doc.font('Helvetica')
+                .fontSize(9)
+                .fillColor('#333333')
+                .text(ingreso.Folio || 'N/A', columns[0].x, yPosition)
+                .text(`${ingreso.Nombre || ''} ${ingreso.Apellido || ''}`.trim(), columns[1].x, yPosition)
+                .text(`${ingreso.Marca || ''} ${ingreso.Modelo || ''} (${ingreso.Placas || 'N/A'})`, columns[2].x, yPosition)
+                .text(`$${manoObra.toFixed(2)}`, columns[3].x, yPosition, { width: columns[3].width, align: columns[3].align })
+                .text(`$${totalIngreso.toFixed(2)}`, columns[4].x, yPosition, { width: columns[4].width, align: columns[4].align });
 
             yPosition += 20;
 
-            // Detalle piezas
-            const piezasResult = await pool.request()
-                .input('IDIngreso', sql.Int, ingreso.IDIngreso)
-                .query(`
-                    SELECT 
-                        p.Nombre_pieza,
-                        dp.Cantidad_Usada AS Cantidad,
-                        dp.Precio,
-                        (dp.Cantidad_Usada * dp.Precio) AS Total
-                    FROM DetallePiezas dp
-                    JOIN Piezas p ON dp.IDPieza = p.IDPieza
-                    WHERE dp.IDIngreso = @IDIngreso
-                `);
+            // Detalle de piezas
+            if (totalPiezasIngreso > 0) {
+                doc.fontSize(8).fillColor('#666666');
+                
+                const piezasResult = await pool.request()
+                    .input('IDIngreso', sql.Int, ingreso.IDIngreso)
+                    .query(`
+                        SELECT 
+                            p.Nombre_pieza,
+                            dp.Cantidad_Usada AS Cantidad,
+                            dp.Precio,
+                            (dp.Cantidad_Usada * dp.Precio) AS Total
+                        FROM DetallePiezas dp
+                        JOIN Piezas p ON dp.IDPieza = p.IDPieza
+                        WHERE dp.IDIngreso = @IDIngreso
+                    `);
 
-            if (piezasResult.recordset.length > 0) {
-                doc.fontSize(8).fillColor('#444444');
                 piezasResult.recordset.forEach(pieza => {
-                    const cantidad = typeof pieza.Cantidad === 'number' ? pieza.Cantidad : 0;
-                    const precio = typeof pieza.Precio === 'number' ? pieza.Precio : 0;
-                    const nombre = pieza.Nombre_pieza ?? 'Sin nombre';
-                    doc.text(`› ${nombre} (${cantidad} x $${precio.toFixed(2)})`, colPositions.cliente, yPosition);
-                    yPosition += 15;
+                    const nombre = pieza.Nombre_pieza || 'Pieza sin nombre';
+                    const cantidad = pieza.Cantidad || 0;
+                    const precio = pieza.Precio || 0;
+                    doc.text(`› ${nombre} (${cantidad} x $${precio.toFixed(2)})`, columns[1].x, yPosition);
+                    yPosition += 12;
                 });
+
+                yPosition += 5;
             }
 
-            totalGeneral += totalIngreso;
+            // Acumular totales
             totalManoObra += manoObra;
-            yPosition += 10;
+            totalPiezas += totalPiezasIngreso;
+            totalGeneral += totalIngreso;
         }
 
-        // Totales
-        const margen = totalGeneral > 0 ? ((totalManoObra / totalGeneral) * 100).toFixed(2) : '0.00';
+        // Calculo de margenes
+        const margen = totalGeneral > 0 ? (totalManoObra / totalGeneral) * 100 : 0;
 
-        yPosition += 20;
-        doc.fillColor('#000000').fontSize(10).font('Helvetica-Bold');
-        doc.text('TOTAL MANO DE OBRA:', 350, yPosition)
-            .text(`$${totalManoObra.toFixed(2)}`, 470, yPosition, { align: 'right' });
+        // Seccion de totales
+        yPosition += 30;
+        doc.font('Helvetica-Bold').fontSize(10).fillColor('#2c3e50');
+        
+        // Linea divisoria
+        doc.moveTo(40, yPosition).lineTo(560, yPosition).strokeColor('#2c3e50').lineWidth(1).stroke();
+        yPosition += 25;
 
-        yPosition += 15;
-        doc.text('TOTAL GENERAL:', 350, yPosition)
-            .text(`$${totalGeneral.toFixed(2)}`, 470, yPosition, { align: 'right' });
+        // Ajuste de alineacion visual
+        const labelX = 350;
+        const valueX = 450;
 
-        yPosition += 15;
-        doc.text('MARGEN TOTAL:', 350, yPosition)
-            .text(`${margen}%`, 470, yPosition, { align: 'right' });
+        doc.text('TOTAL PIEZAS:', labelX, yPosition)
+    .text(`$${totalPiezas.toFixed(2)}`, valueX, yPosition, { align: 'right', width: 90 });
+    yPosition += 20;
 
-        // Pie de página
+        doc.text('TOTAL MANO DE OBRA:', labelX, yPosition)
+    .text(`$${totalManoObra.toFixed(2)}`, valueX, yPosition, { align: 'right', width: 90 });
+    yPosition += 20;
+
+        doc.text('TOTAL GENERAL:', labelX, yPosition)
+    .text(`$${totalGeneral.toFixed(2)}`, valueX, yPosition, { align: 'right', width: 90 });
+    yPosition += 20;
+
+        doc.text('MARGEN:', labelX, yPosition)
+    .text(`${margen.toFixed(2)}%`, valueX, yPosition, { align: 'right', width: 90 });
+
+        // Pie de pagina
         doc.fontSize(8).fillColor('#777777')
-            .text(`Generado el ${new Date().toLocaleDateString()}`, 40, 780);
+            .text(`Generado el ${new Date().toLocaleDateString()} a las ${new Date().toLocaleTimeString()}`, 40, 780)
+            .text(`Sistema Transmisiones Frías v2.0`, 40, 795, { align: 'left' });
 
         doc.end();
     } catch (error) {
@@ -1947,4 +1974,204 @@ app.get('/generar-reporte-ventas', async (req, res) => {
     }
 });
 
+app.get('/generar-reporte-inventario', async (req, res) => {
+    try {
+        const pool = await poolPromise;
+        
+        const result = await pool.request().query(`
+            SELECT 
+                ISNULL(p.Nombre_pieza, 'Sin nombre') AS Nombre_pieza,
+                ISNULL(p.SKU, 'N/A') AS SKU,
+                ISNULL(p.Marca, 'N/A') AS Marca,
+                COALESCE(p.Cantidad, 0) AS Cantidad,
+                COALESCE(p.Costo_compra, 0) AS Costo_compra,
+                COALESCE(p.Precio_venta, 0) AS Precio_venta,
+                (COALESCE(p.Cantidad, 0) * COALESCE(p.Costo_compra, 0)) AS Valor_costo,
+                (COALESCE(p.Cantidad, 0) * COALESCE(p.Precio_venta, 0)) AS Valor_venta
+            FROM Piezas p
+            ORDER BY p.Nombre_pieza
+        `);
+
+        const piezas = result.recordset;
+        
+        if (piezas.length === 0) {
+            return res.status(404).send('No se encontraron registros en el inventario');
+        }
+
+        const doc = new PDFDocument({ margin: 40, size: 'A4' });
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', 'inline; filename=reporte_inventario.pdf');
+        
+        // Manejo mejorado de errores
+        let streamClosed = false;
+        doc.on('error', (error) => {
+            if (!streamClosed && !res.headersSent) {
+                res.status(500).send('Error generando PDF');
+                streamClosed = true;
+            }
+        });
+
+        doc.pipe(res);
+
+        const columnPositions = {
+            NOMBRE: 45,     
+            SKU: 180,       
+            MARCA: 260,     
+            EXIST: 360,     
+            VALOR: 460      
+        };
+
+        let yPosition = 120;
+        let pageNumber = 1;
+        const MAX_Y = 750;
+        const ROW_HEIGHT = 20;
+
+    
+        const formatMoney = (value) => {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(value).replace('USD', '').trim(); 
+        };
+
+        const dibujarEncabezados = () => {
+            try {
+                doc.fillColor('#2c3e50')
+                    .rect(40, yPosition, 520, 25)
+                    .fill();
+                
+                doc.font('Helvetica-Bold')
+                    .fontSize(10)
+                    .fillColor('#ffffff')
+                    .text('NOMBRE', columnPositions.NOMBRE, yPosition + 8)
+                    .text('SKU', columnPositions.SKU, yPosition + 8)
+                    .text('MARCA', columnPositions.MARCA, yPosition + 8)
+                    .text('STOCK', columnPositions.EXIST, yPosition + 8, { width: 60, align: 'right' })
+                    .text('VALOR', columnPositions.VALOR, yPosition + 8, { width: 60, align: 'right' });
+
+                yPosition += 30;
+            } catch (error) {
+                console.error('Error dibujando encabezados:', error);
+                throw error;
+            }
+        };
+
+        // Cabecera
+        try {
+            doc.image('./img/TF_LOGO.png', 40, 15, { width: 60 })
+                .font('Helvetica-Bold')
+                .fontSize(16)
+                .fillColor('#2c3e50')
+                .text('REPORTE DE INVENTARIO', 110, 20)
+                .fontSize(10)
+                .fillColor('#666666')
+                .text(`Generado: ${new Date().toLocaleDateString()}`, 400, 25)
+                .text(`Total registros: ${piezas.length}`, 400, 40);
+
+            dibujarEncabezados();
+        } catch (headerError) {
+            console.error('Error en cabecera:', headerError);
+            if (!streamClosed && !res.headersSent) {
+                return res.status(500).send('Error generando cabecera');
+            }
+            return;
+        }
+
+        // Procesar registros
+        for (const [index, pieza] of piezas.entries()) {
+            try {
+                if (yPosition + ROW_HEIGHT > MAX_Y) {
+                    doc.addPage();
+                    pageNumber++;
+                    yPosition = 40;
+                    dibujarEncabezados();
+                }
+
+                // Validacion numerica
+                const valorCosto = Number(pieza.Valor_costo) || 0;
+                
+                const nombre = pieza.Nombre_pieza?.substring(0, 25) || 'Sin nombre';
+                const marca = pieza.Marca?.substring(0, 15) || 'N/A';
+                const sku = pieza.SKU || 'N/A';
+
+                doc.fillColor(index % 2 === 0 ? '#FFFFFF' : '#F8F9FA')
+                    .rect(40, yPosition, 520, ROW_HEIGHT)
+                    .fill();
+
+                doc.font('Helvetica')
+                    .fontSize(9)
+                    .fillColor('#333333')
+                    .text(nombre, columnPositions.NOMBRE, yPosition + 6, { width: 110 })
+                    .text(sku, columnPositions.SKU, yPosition + 6, { width: 80 })
+                    .text(marca, columnPositions.MARCA, yPosition + 6, { width: 90 })
+                    .text(pieza.Cantidad.toString(), columnPositions.EXIST, yPosition + 6, { width: 60, align: 'right' })
+                    .text(formatMoney(valorCosto), columnPositions.VALOR, yPosition + 6, { width: 60, align: 'right' });
+
+
+                yPosition += ROW_HEIGHT;
+            } catch (rowError) {
+                console.error(`Error en fila ${index + 1}:`, rowError);
+                continue;
+            }
+        }
+
+        // Totales
+        try {
+            const totales = piezas.reduce((acc, pieza) => ({
+                cantidad: acc.cantidad + Number(pieza.Cantidad),
+                valorCosto: acc.valorCosto + Number(pieza.Valor_costo),
+                valorVenta: acc.valorVenta + Number(pieza.Valor_venta)
+            }), { cantidad: 0, valorCosto: 0, valorVenta: 0 });
+
+            const margenGanancia = totales.valorVenta - totales.valorCosto;
+            const porcentajeMargen = totales.valorCosto > 0 ? 
+            ((margenGanancia / totales.valorCosto) * 100) : 0;
+
+            //Validacion de espacio para los totales
+            doc.moveTo(40, yPosition).lineTo(550, yPosition).stroke();
+            yPosition += 20;
+
+            const labelX = 400;
+            const valueX = 470;
+
+            doc.text('TOTAL GENERAL:', labelX, yPosition, { width: 160, align: 'left' })
+                .text(formatMoney(totales.valorCosto), valueX, yPosition, { align: 'right' });
+
+            yPosition += 20;
+            doc.text('Total De Piezas:', labelX, yPosition, { width: 160, align: 'left' })
+                .text(totales.cantidad.toString(), valueX, yPosition, { align: 'right' });
+
+            yPosition += 20;
+            doc.text('Valor Total De Venta:', labelX, yPosition, { width: 160, align: 'left' })
+                .text(formatMoney(totales.valorVenta), valueX, yPosition, { align: 'right' });
+
+            yPosition += 20;
+            doc.text('Margen Aproximado:', labelX, yPosition, { width: 160, align: 'left' })
+                .text(`${porcentajeMargen.toFixed(2)}%`, valueX, yPosition, { align: 'right' });
+
+
+            if (yPosition < 750) {
+                doc.fontSize(8)
+                    .fillColor('#666666')
+                    .text(`Sistema Transmisiones Frías - Página ${pageNumber}`, 40, 780, { align: 'center' });
+            }
+
+            doc.end();
+            streamClosed = true;
+        } catch (footerError) {
+            console.error('Error en totales:', footerError);
+            if (!streamClosed && !res.headersSent) {
+                res.status(500).send('Error generando totales');
+            }
+        }
+
+    } catch (error) {
+        console.error('Error general:', error);
+        if (!streamClosed && !res.headersSent) {
+            res.status(500).send('Error al generar reporte');
+        }
+    }
+});
 

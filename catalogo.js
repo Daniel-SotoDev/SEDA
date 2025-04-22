@@ -10,6 +10,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     
     const btnActualizarExistencias = document.getElementById("btnActualizarExistencias");
     const modalActualizarExistencias = document.getElementById("modalActualizarExistencias");
+    const btnReportesInventario = document.getElementById("btnReportesInventario");
     const cerrarModalActualizar = document.getElementById("cerrarModalActualizar");
     const formActualizarExistencias = document.getElementById("formActualizarExistencias");
     const buscarSKU = document.getElementById("buscarSKU");
@@ -147,6 +148,17 @@ document.addEventListener("DOMContentLoaded", async () => {
         modalActualizarExistencias.style.display = "flex";
     });
 
+    btnReportesInventario.addEventListener("click", async () => {
+        try {
+            const urlServidor = await obtenerURLServidor();
+            const pdfUrl = `${urlServidor}/generar-reporte-inventario`;
+            window.open(pdfUrl, '_blank');
+        } catch (error) {
+            console.error("Error al generar reporte:", error);
+            alert("Error al generar reporte de inventario");
+        }
+    });
+    
     // Cerrar modal de actualización de existencias
     cerrarModalActualizar.addEventListener("click", () => {
         formActualizarExistencias.reset();

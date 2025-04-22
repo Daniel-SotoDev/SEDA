@@ -15,6 +15,7 @@ let crearSucursalWindow;
 let crearUsuarioWindow;
 let asesorWindow;
 let entregaWindow;
+let splashWindow;
 
 app.disableHardwareAcceleration();
 
@@ -47,8 +48,31 @@ async function updatePasswords() {
 
 app.whenReady().then(() => {
     //updatePasswords(); //------------NO OLVIDAR BORRAR / SE COMENTA POR SI SE NECESITA MAS ADELANTE
-    createLoginWindow();
+    createSplashWindow();
 });
+
+function createSplashWindow() {
+    splashWindow = new BrowserWindow({
+        width: 400,
+        height: 300,
+        frame: false,
+        alwaysOnTop: true,
+        transparent: false,
+        resizable: false,
+        show: true,
+        icon: path.join(__dirname, "img", "TF_LOGO.png"),
+        webPreferences: {
+            contextIsolation: true
+        }
+    });
+
+    splashWindow.loadFile("splash.html");
+
+    setTimeout(() => {
+        splashWindow.close();
+        createLoginWindow(); // Mostrar login después del splash
+    }, 5000);
+}
 
 function createLoginWindow() {
     loginWindow = new BrowserWindow({
