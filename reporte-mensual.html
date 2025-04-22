@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Reporte Mensual</title>
+    <link rel="stylesheet" href="./styles/reportes.css">
+</head>
+<body>
+    <div class="modal">
+        <h2 class="main__title">Reporte Mensual</h2>
+        <button class="close-btn" id="closeModal">X</button>
+        <form id="formMensual">
+            <div class="row">
+                <div class="form__group">
+                    <label class="label__form">Fecha inicial:</label>
+                    <input type="date" id="fechaInicio" required>
+                </div>
+                <div class="form__group">
+                    <label class="label__form">Fecha final:</label>
+                    <input type="date" id="fechaFin" required>
+                </div>
+            </div>
+            <div class="button-container">
+                <button type="submit" class="register-btn">Generar Reporte</button>
+            </div>
+        </form>
+    </div>
+    <script src="reportes.js"></script>
+    <script>
+        document.getElementById('formMensual').addEventListener('submit', function(e) {
+            e.preventDefault();
+            generarReporte('mensual');
+        });
+    </script>
+</body>
+</html>

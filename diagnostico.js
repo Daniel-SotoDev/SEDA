@@ -367,4 +367,30 @@ document.getElementById('btnGuardar').addEventListener('click', async () => {
         alert("Error al guardar el diagnóstico");
     }
 });
+document.getElementById('btnPDF').addEventListener('click', async () => {
+    if (!folioActual) {
+        alert("Primero debe cargar un diagnóstico válido");
+        return;
+    }
+
+    try {
+        const urlServidor = await obtenerURLServidor();
+        
+        // Crear un enlace temporal para descargar el PDF
+        const link = document.createElement('a');
+        link.href = `${urlServidor}/generar-pdf-diagnostico?folio=${encodeURIComponent(folioActual)}`;
+        link.target = '_blank';
+        link.download = `diagnostico_${folioActual}.pdf`;
+        
+        // Simular click en el enlace
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+    } catch (error) {
+        console.error("Error al generar PDF:", error);
+        alert("Error al generar el PDF: " + error.message);
+    }
+});
+
 });

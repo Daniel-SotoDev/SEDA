@@ -11,6 +11,8 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const net = require("net");
+const PDFDocument = require('pdfkit');
+const blobStream = require('blob-stream');
 
 const app = express()
 
@@ -1316,3 +1318,633 @@ app.post("/registrarEntrega", async (req, res) => {
         res.status(500).json({ error: "Error en el servidor" });
     }
 });
+
+app.get("/generar-pdf-diagnostico", async (req, res) => {
+    try {
+        const { folio } = req.query;
+        if (!folio) return res.status(400).json({ error: "Folio es requerido" });
+
+        const pool = await poolPromise;
+        const diagnosticoResult = await pool.request()
+            .input("folio", sql.VarChar, folio)
+            .query(`
+                SELECT 
+                    i.*, c.Nombre, c.Apellido, c.Domicilio, c.Correo,
+                    v.Placas, v.Marca, v.Modelo, v.Linea_Vehiculo, v.Color, v.Kilometraje, v.Testigos,
+                    a.Nombre AS AsesorNombre, a.Apellido AS AsesorApellido,
+                    s.Nombre AS Sucursal, s.Direccion AS SucursalDireccion, s.Telefono AS SucursalTelefono,
+                    co.Falla AS ProblemaReportado, co.Mano_Obra AS ManoObraCotizada
+                FROM Ingresos i
+                INNER JOIN Clientes c ON i.IDCliente = c.IDCliente
+                INNER JOIN Vehiculos v ON i.IDVehiculo = v.IDVehiculo
+                INNER JOIN Asesor a ON i.IDAsesor = a.IDAsesor
+                INNER JOIN Sucursales s ON a.IDSucursal = s.IDSucursal
+                LEFT JOIN Cotizaciones co ON i.IDCotizacion = co.IDCotizacion
+                WHERE i.Folio = @folio
+            `);
+
+        if (diagnosticoResult.recordset.length === 0)
+            return res.status(404).json({ error: "Diagnóstico no encontrado" });
+
+        const diagnostico = diagnosticoResult.recordset[0];
+
+        const piezasResult = await pool.request()
+            .input("IDIngreso", sql.Int, diagnostico.IDIngreso)
+            .query(`
+                SELECT 
+                    p.Nombre_pieza, dp.Cantidad_Usada, dp.Precio,
+                    (dp.Cantidad_Usada * dp.Precio) AS Total
+                FROM DetallePiezas dp
+                JOIN Piezas p ON dp.IDPieza = p.IDPieza
+                WHERE dp.IDIngreso = @IDIngreso
+            `);
+        const piezas = piezasResult.recordset;
+
+        const doc = new PDFDocument({ margin: 40, size: 'A4' });
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename=diagnostico_${folio}.pdf`);
+        doc.pipe(res);
+
+        const primaryColor = '#2c3e50';
+        const secondaryColor = '#3498db';
+        const lightGrey = '#ecf0f1';
+
+        // Encabezado
+        doc.fillColor(primaryColor).fontSize(16).font('Helvetica-Bold')
+            .text('Reporte de Diagnóstico Automotriz', 50, 40)
+            .image('./img/TF_LOGO.png', 450, 10, { width: 80 });
+
+        // Info sucursal y folio
+        doc.fontSize(9).fillColor('#7f8c8d')
+            .text(`${diagnostico.Sucursal} | ${diagnostico.SucursalDireccion} | Tel: ${diagnostico.SucursalTelefono}`, 50, 70)
+            .fillColor(secondaryColor).fontSize(11)
+            .text(`Folio: ${folio}`, 50, 90)
+            .text(`Fecha: ${new Date(diagnostico.FechaIngreso).toLocaleDateString()}`, { align: 'right' });
+
+        // Datos Cliente y Asesor
+        doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(12)
+            .text('Cliente:', 50, 120)
+            .text('Asesor:', 300, 120);
+
+        doc.font('Helvetica').fillColor('#2c3e50').fontSize(10)
+            .text(`${diagnostico.Nombre} ${diagnostico.Apellido}`, 50, 135)
+            .text(diagnostico.Domicilio, 50, 150)
+            .text(diagnostico.Correo || 'N/A', 50, 165)
+            .text(`${diagnostico.AsesorNombre} ${diagnostico.AsesorApellido}`, 300, 135)
+            .text(`Sucursal: ${diagnostico.Sucursal}`, 300, 150);
+
+        // Vehículo
+        doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(12)
+            .text('Vehículo:', 50, 190);
+        doc.font('Helvetica').fillColor('#2c3e50').fontSize(10)
+            .text(`Placas: ${diagnostico.Placas}`, 50, 205)
+            .text(`Marca: ${diagnostico.Marca}`, 50, 220)
+            .text(`Modelo: ${diagnostico.Modelo || diagnostico.Linea_Vehiculo}`, 50, 235)
+            .text(`Color: ${diagnostico.Color}`, 300, 205)
+            .text(`Kilometraje: ${diagnostico.Kilometraje} km`, 300, 220)
+            .text(`Testigos: ${diagnostico.Testigos || 'Ninguno'}`, 300, 235);
+
+        // Diagnóstico
+        doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(12)
+            .text('Problema reportado:', 50, 265)
+            .font('Helvetica').fillColor('#2c3e50')
+            .text(diagnostico.ProblemaReportado || 'No especificado', 50, 280, { width: 500 });
+
+        doc.font('Helvetica-Bold').fillColor(primaryColor)
+            .text('Diagnóstico realizado:', 50, 310)
+            .font('Helvetica').fillColor('#2c3e50')
+            .text(diagnostico.Diagnostico || 'No especificado', 50, 325, { width: 500 });
+
+        // 
+        if (piezas.length > 0) {
+            doc.addPage();
+
+            doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(14)
+                .text('Detalle de Refacciones', 50, 40);
+
+            const startY = 65;
+            doc.rect(50, startY, 500, 20).fill(secondaryColor);
+            doc.fontSize(10).fillColor('#ffffff').font('Helvetica-Bold')
+                .text('Descripción', 55, startY + 5)
+                .text('Cantidad', 300, startY + 5)
+                .text('P. Unitario', 380, startY + 5)
+                .text('Total', 460, startY + 5);
+
+            let currentY = startY + 25;
+            piezas.forEach((pieza, i) => {
+                doc.fillColor(i % 2 === 0 ? lightGrey : '#ffffff')
+                    .rect(50, currentY, 500, 18).fill();
+                doc.fillColor('#2c3e50').font('Helvetica').fontSize(9)
+                    .text(pieza.Nombre_pieza, 55, currentY + 4)
+                    .text(pieza.Cantidad_Usada, 300, currentY + 4)
+                    .text(`$${pieza.Precio.toFixed(2)}`, 380, currentY + 4)
+                    .text(`$${pieza.Total.toFixed(2)}`, 460, currentY + 4);
+                currentY += 18;
+            });
+
+            const totalPiezas = piezas.reduce((sum, p) => sum + p.Total, 0);
+            const manoObra = diagnostico.ManoObraCotizada || 0;
+            const total = totalPiezas + manoObra;
+
+            doc.fillColor('#2c3e50').font('Helvetica-Bold').fontSize(10)
+                .text('Subtotal Refacciones:', 350, currentY + 10)
+                .text(`$${totalPiezas.toFixed(2)}`, 460, currentY + 10)
+                .text('Mano de Obra:', 350, currentY + 25)
+                .text(`$${manoObra.toFixed(2)}`, 460, currentY + 25)
+                .moveTo(350, currentY + 38).lineTo(550, currentY + 38).stroke()
+                .fontSize(11)
+                .text('TOTAL GENERAL:', 350, currentY + 45)
+                .text(`$${total.toFixed(2)}`, 460, currentY + 45);
+        }
+
+        // Firma
+        doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(12)
+            .text('Confirmación del Servicio', 50, doc.y + 30);
+        doc.font('Helvetica').fontSize(10)
+            .text('Firma del Cliente: _______________________', 50, doc.y + 20)
+            .text('Nombre y Fecha: ________________________', 50, doc.y + 15)
+            .text(`Atendido por: ${diagnostico.AsesorNombre} ${diagnostico.AsesorApellido}`, 300, doc.y - 10)
+            .text(`Sucursal: ${diagnostico.Sucursal}`, 300, doc.y + 5)
+            .text(`Fecha de Entrega: ${new Date().toLocaleDateString()}`, 300, doc.y + 20);
+
+        doc.end();
+    } catch (error) {
+        console.error("Error al generar PDF:", error);
+        if (!res.headersSent) res.status(500).json({ error: "Error al generar el PDF: " + error.message });
+        else res.end();
+    }
+});
+
+app.get("/generar-pdf-cotizacion", async (req, res) => {
+    try {
+        const { folio } = req.query;
+        if (!folio) return res.status(400).json({ error: "Folio es requerido" });
+
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input("folio", sql.VarChar, folio)
+            .query(`
+                SELECT 
+                    c.Nombre, 
+                    c.Apellido, 
+                    c.Domicilio, 
+                    c.Correo,
+                    v.Placas, 
+                    v.Marca, 
+                    v.Modelo, 
+                    v.Linea_Vehiculo, 
+                    v.Color, 
+                    v.Kilometraje, 
+                    v.Testigos,
+                    cot.Fecha, 
+                    cot.Mano_Obra AS ManoObraCotizada,
+                    cot.IDCotizacion
+                FROM Cotizaciones cot
+                INNER JOIN Clientes c ON cot.IDCliente = c.IDCliente
+                INNER JOIN Vehiculos v ON cot.IDVehiculo = v.IDVehiculo
+                LEFT JOIN Ingresos i ON cot.IDCotizacion = i.IDCotizacion
+                LEFT JOIN Asesor a ON i.IDAsesor = a.IDAsesor
+                WHERE cot.Folio = @folio
+            `);
+
+        if (result.recordset.length === 0)
+            return res.status(404).json({ error: "Cotización no encontrada" });
+
+        const cotizacion = result.recordset[0];
+
+        const piezasResult = await pool.request()
+            .input("IDCotizacion", sql.Int, cotizacion.IDCotizacion)
+            .query(`
+                SELECT 
+                    p.Nombre_pieza, dp.Cantidad_Cotizada, dp.Precio,
+                    (dp.Cantidad_Cotizada * dp.Precio) AS Total
+                FROM DetallePiezas dp
+                JOIN Piezas p ON dp.IDPieza = p.IDPieza
+                WHERE dp.IDCotizacion = @IDCotizacion
+            `);
+        const piezas = piezasResult.recordset;
+
+        const doc = new PDFDocument({ margin: 40, size: 'A4' });
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename=cotizacion_${folio}.pdf`);
+        doc.pipe(res);
+
+        const primaryColor = '#2c3e50';
+        const secondaryColor = '#3498db';
+        const lightGrey = '#ecf0f1';
+
+        // Encabezado
+        doc.fillColor(primaryColor).fontSize(16).font('Helvetica-Bold')
+            .text('Reporte de Cotización', 50, 40)
+            .image('./img/TF_LOGO.png', 450, 10, { width: 80 });
+
+        // Info sucursal y folio
+        doc.fontSize(9).fillColor('#7f8c8d')
+            //.text(`${cotizacion.Sucursal} | ${cotizacion.SucursalDireccion} | Tel: ${cotizacion.SucursalTelefono}`, 50, 70)
+            .fillColor(secondaryColor).fontSize(11)
+            .text(`Folio: ${folio}`, 50, 90)
+            .text(`Fecha: ${new Date(cotizacion.Fecha).toLocaleDateString()}`, { align: 'right' });
+
+        // Datos Cliente
+        doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(12)
+            .text('Cliente:', 50, 120);
+
+        doc.font('Helvetica').fillColor('#2c3e50').fontSize(10)
+            .text(`${cotizacion.Nombre} ${cotizacion.Apellido}`, 50, 135)
+            .text(cotizacion.Domicilio, 50, 150)
+            .text(cotizacion.Correo || 'N/A', 50, 165);
+
+        // Vehículo
+        doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(12)
+            .text('Vehículo:', 50, 200);
+        doc.font('Helvetica').fillColor('#2c3e50').fontSize(10)
+            .text(`Placas: ${cotizacion.Placas}`, 50, 215)
+            .text(`Marca: ${cotizacion.Marca}`, 50, 230)
+            .text(`Modelo: ${cotizacion.Modelo || cotizacion.Linea_Vehiculo}`, 50, 245)
+            .text(`Color: ${cotizacion.Color}`, 300, 215)
+            .text(`Kilometraje: ${cotizacion.Kilometraje} km`, 300, 230)
+            .text(`Testigos: ${cotizacion.Testigos || 'Ninguno'}`, 300, 245);
+
+        // Segunda hoja con piezas
+        if (piezas.length > 0) {
+            doc.addPage();
+
+            doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(14)
+                .text('Detalle de Refacciones', 50, 40);
+
+            const startY = 65;
+            doc.rect(50, startY, 500, 20).fill(secondaryColor);
+            doc.fontSize(10).fillColor('#ffffff').font('Helvetica-Bold')
+                .text('Descripción', 55, startY + 5)
+                //.text('SKU', 55, startY + 5)
+                .text('Cantidad', 300, startY + 5)
+                .text('P. Unitario', 380, startY + 5)
+                .text('Total', 460, startY + 5);
+
+            let currentY = startY + 25;
+            piezas.forEach((pieza, i) => {
+                doc.fillColor(i % 2 === 0 ? lightGrey : '#ffffff')
+                    .rect(50, currentY, 500, 18).fill();
+                doc.fillColor('#2c3e50').font('Helvetica').fontSize(9)
+                    .text(pieza.Nombre_pieza, 55, currentY + 4)
+                    //.text(pieza.SKU, 55, currentY +4)
+                    .text(pieza.Cantidad_Cotizada, 300, currentY + 4)
+                    .text(`$${pieza.Precio.toFixed(2)}`, 380, currentY + 4)
+                    .text(`$${pieza.Total.toFixed(2)}`, 460, currentY + 4);
+                currentY += 18;
+            });
+
+            const totalPiezas = piezas.reduce((sum, p) => sum + p.Total, 0);
+            const manoObra = cotizacion.ManoObraCotizada || 0;
+            const total = totalPiezas + manoObra;
+
+            doc.fillColor('#2c3e50').font('Helvetica-Bold').fontSize(10)
+                .text('Subtotal Refacciones:', 350, currentY + 10)
+                .text(`$${totalPiezas.toFixed(2)}`, 460, currentY + 10)
+                .text('Mano de Obra:', 350, currentY + 25)
+                .text(`$${manoObra.toFixed(2)}`, 460, currentY + 25)
+                .moveTo(350, currentY + 38).lineTo(550, currentY + 38).stroke()
+                .fontSize(11)
+                .text('TOTAL GENERAL:', 350, currentY + 45)
+                .text(`$${total.toFixed(2)}`, 460, currentY + 45);
+        }
+
+        doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(12)
+            .text('Confirmación de Cotización', 50, doc.y + 30);
+        doc.font('Helvetica').fontSize(10)
+            .text('Firma del Cliente: _______________________', 50, doc.y + 20)
+            .text('Nombre y Fecha: ________________________', 50, doc.y + 15)
+            //.text(`Sucursal: ${cotizacion.Sucursal}`, 300, doc.y + 5)
+            .text(`Fecha de Emisión: ${new Date().toLocaleDateString()}`, 300, doc.y + 20);
+
+        doc.end();
+    } catch (error) {
+        console.error("Error al generar PDF:", error);
+        if (!res.headersSent) res.status(500).json({ error: "Error al generar el PDF: " + error.message });
+        else res.end();
+    }
+});
+app.get("/generar-pdf-entrega", async (req, res) => {
+    try {
+        const { folio } = req.query;
+        if (!folio) return res.status(400).json({ error: "Folio es requerido" });
+
+        const pool = await poolPromise;
+        
+        // Obtener datos principales del ingreso
+        const ingresoResult = await pool.request()
+            .input("folio", sql.VarChar, folio)
+            .query(`
+                SELECT 
+                    i.*, c.Nombre, c.Apellido, c.Domicilio, c.Correo,
+                    v.Placas, v.Marca, v.Modelo, v.Linea_Vehiculo, v.Color, v.Kilometraje,
+                    a.Nombre AS AsesorNombre, a.Apellido AS AsesorApellido,
+                    s.Nombre AS Sucursal, s.Direccion AS SucursalDireccion, s.Telefono AS SucursalTelefono,
+                    e.Fecha AS FechaEntrega
+                FROM Ingresos i
+                INNER JOIN Clientes c ON i.IDCliente = c.IDCliente
+                INNER JOIN Vehiculos v ON i.IDVehiculo = v.IDVehiculo
+                INNER JOIN Asesor a ON i.IDAsesor = a.IDAsesor
+                INNER JOIN Sucursales s ON a.IDSucursal = s.IDSucursal
+                LEFT JOIN Entrega e ON i.IDEntrega = e.IDEntrega
+                WHERE i.Folio = @folio
+            `);
+
+        if (ingresoResult.recordset.length === 0)
+            return res.status(404).json({ error: "Ingreso no encontrado" });
+
+        const ingreso = ingresoResult.recordset[0];
+
+        // Obtener piezas utilizadas
+        const piezasResult = await pool.request()
+            .input("IDIngreso", sql.Int, ingreso.IDIngreso)
+            .query(`
+                SELECT 
+                    p.Nombre_pieza, dp.Cantidad_Usada, dp.Precio,
+                    (dp.Cantidad_Usada * dp.Precio) AS Total
+                FROM DetallePiezas dp
+                JOIN Piezas p ON dp.IDPieza = p.IDPieza
+                WHERE dp.IDIngreso = @IDIngreso
+            `);
+        const piezas = piezasResult.recordset;
+
+        const doc = new PDFDocument({ margin: 40, size: 'A4' });
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename=recibo_entrega_${folio}.pdf`);
+        doc.pipe(res);
+
+        // Estilos
+        const primaryColor = '#2c3e50';
+        const secondaryColor = '#3498db';
+        const lightGrey = '#ecf0f1';
+
+        // Encabezado
+        doc.fillColor(primaryColor).fontSize(16).font('Helvetica-Bold')
+            .text('Recibo de Entrega de Vehículo', 50, 40)
+            .image('./img/TF_LOGO.png', 450, 10, { width: 80 });
+
+        // Información de la sucursal
+        doc.fontSize(9).fillColor('#7f8c8d')
+            .text(`${ingreso.Sucursal} | ${ingreso.SucursalDireccion} | Tel: ${ingreso.SucursalTelefono}`, 50, 70)
+            .fillColor(secondaryColor).fontSize(11)
+            .text(`Folio: ${folio}`, 50, 90)
+            .text(`Fecha Entrega: ${new Date().toLocaleDateString()}`, { align: 'right' });
+
+        // Sección Cliente y Asesor
+        doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(12)
+            .text('Cliente:', 50, 120)
+            .text('Asesor:', 300, 120);
+
+        doc.font('Helvetica').fillColor('#2c3e50').fontSize(10)
+            .text(`${ingreso.Nombre} ${ingreso.Apellido}`, 50, 135)
+            .text(ingreso.Domicilio, 50, 150)
+            .text(ingreso.Correo || 'N/A', 50, 165)
+            .text(`${ingreso.AsesorNombre} ${ingreso.AsesorApellido}`, 300, 135)
+            .text(`Sucursal: ${ingreso.Sucursal}`, 300, 150);
+
+        // Detalles del Vehículo
+        doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(12)
+            .text('Vehículo:', 50, 190);
+        doc.font('Helvetica').fillColor('#2c3e50').fontSize(10)
+            .text(`Placas: ${ingreso.Placas}`, 50, 205)
+            .text(`Marca: ${ingreso.Marca}`, 50, 220)
+            .text(`Modelo: ${ingreso.Modelo}`, 50, 235)
+            .text(`Línea: ${ingreso.Linea_Vehiculo}`, 300, 205)
+            .text(`Color: ${ingreso.Color}`, 300, 220)
+            .text(`Kilometraje: ${ingreso.Kilometraje} km`, 300, 235);
+
+        // Detalle de Servicios y Piezas
+        doc.addPage();
+        doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(14)
+            .text('Detalle del Servicio', 50, 40);
+
+        // Diagnóstico
+        doc.fontSize(12).fillColor(primaryColor)
+            .text('Diagnóstico Inicial Y Final:', 50, 70)
+            .font('Helvetica').fillColor('#2c3e50').fontSize(10)
+            .text(ingreso.Diagnostico || 'Sin diagnóstico especificado', 50, 85, { width: 500 });
+
+        // Tabla de Piezas
+        if (piezas.length > 0) {
+            doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(12)
+                .text('Piezas Utilizadas:', 50, 120);
+
+            const startY = 140;
+            doc.rect(50, startY, 500, 20).fill(secondaryColor);
+            doc.fontSize(10).fillColor('#ffffff').font('Helvetica-Bold')
+                .text('Descripción', 55, startY + 5)
+                .text('Cantidad', 300, startY + 5)
+                .text('P. Unitario', 380, startY + 5)
+                .text('Total', 460, startY + 5);
+
+            let currentY = startY + 25;
+            piezas.forEach((pieza, i) => {
+                doc.fillColor(i % 2 === 0 ? lightGrey : '#ffffff')
+                    .rect(50, currentY, 500, 18).fill();
+                doc.fillColor('#2c3e50').font('Helvetica').fontSize(9)
+                    .text(pieza.Nombre_pieza, 55, currentY + 4)
+                    .text(pieza.Cantidad_Usada, 300, currentY + 4)
+                    .text(`$${pieza.Precio.toFixed(2)}`, 380, currentY + 4)
+                    .text(`$${pieza.Total.toFixed(2)}`, 460, currentY + 4);
+                currentY += 18;
+            });
+
+            // Totales
+            const totalPiezas = piezas.reduce((sum, p) => sum + p.Total, 0);
+            doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(11)
+                .text('Total Piezas:', 350, currentY + 10)
+                .text(`$${totalPiezas.toFixed(2)}`, 460, currentY + 10)
+                .text('Total Servicio:', 350, currentY + 25)
+                .text(`$${ingreso.Total.toFixed(2)}`, 460, currentY + 25)
+                .moveTo(350, currentY + 38).lineTo(550, currentY + 38).stroke()
+                .text('TOTAL GENERAL:', 350, currentY + 45)
+                .text(`$${(totalPiezas + ingreso.Total).toFixed(2)}`, 460, currentY + 45);
+        }
+
+        // Firma de conformidad
+        doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(12)
+            .text('Confirmación de Entrega', 50, doc.y + 30)
+            .font('Helvetica').fontSize(10)
+            .text('Firma del Cliente: _________________________', 50, doc.y + 20)
+            .text('Nombre y Fecha: ____________________________', 50, doc.y + 35)
+            .text(`Entregado por: ${ingreso.AsesorNombre} ${ingreso.AsesorApellido}`, 300, doc.y + 20)
+            .text(`Sucursal: ${ingreso.Sucursal}`, 300, doc.y + 35);
+
+        doc.end();
+    } catch (error) {
+        console.error("Error al generar PDF de entrega:", error);
+        if (!res.headersSent) res.status(500).json({ error: "Error al generar el PDF: " + error.message });
+        else res.end();
+    }
+});
+app.get('/generar-reporte-ventas', async (req, res) => {
+    try {
+        const { tipo, fechaInicio, fechaFin, usuario } = req.query;
+        const pool = await poolPromise;
+
+         // Validar si el usuario es admin
+        const rolResult = await pool.request()
+        .input("usuario", sql.VarChar, usuario)
+        .query("SELECT rol FROM usuarios WHERE usuario = @usuario");
+
+    const userData = rolResult.recordset[0];
+    if (!userData || userData.rol !== 'admin') {
+        return res.status(403).send("Acceso no autorizado");
+    }
+
+        const ingresosResult = await pool.request()
+            .input('startDate', sql.Date, new Date(fechaInicio))
+            .input('endDate', sql.Date, new Date(fechaFin))
+            .query(`
+                SELECT 
+                    i.IDIngreso,
+                    i.Folio,
+                    FORMAT(i.FechaIngreso, 'dd/MM/yyyy') AS FechaFormateada,
+                    i.Total,
+                    COALESCE(co.Mano_Obra, 0) AS Mano_Obra,
+                    c.Nombre,
+                    c.Apellido,
+                    v.Placas,
+                    v.Marca,
+                    v.Modelo
+                FROM Ingresos i
+                INNER JOIN Clientes c ON i.IDCliente = c.IDCliente
+                INNER JOIN Vehiculos v ON i.IDVehiculo = v.IDVehiculo
+                LEFT JOIN Cotizaciones co ON i.IDCotizacion = co.IDCotizacion
+                WHERE i.IDEntrega IS NOT NULL
+                    AND i.FechaIngreso BETWEEN @startDate AND @endDate
+                ORDER BY i.FechaIngreso
+            `);
+
+        if (ingresosResult.recordset.length === 0) {
+            return res.status(404).send('No se encontraron registros para el período seleccionado');
+        }
+
+        const doc = new PDFDocument({ margin: 40 });
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename=reporte_${tipo}.pdf`);
+        doc.pipe(res);
+
+        // Encabezado
+        doc.image('./img/TF_LOGO.png', 40, 15, { width: 60 })
+            .font('Helvetica-Bold')
+            .fontSize(16)
+            .text('TRANSMISIONES FRÍAS', 110, 20)
+            .fontSize(10)
+            .fillColor('#555555')
+            .text(`Reporte: ${tipo.toUpperCase()}`, 110, 40)
+            .text(`${fechaInicio} - ${fechaFin}`, 110, 55)
+            .moveDown(2);
+
+        // Estilos tipo tabla Excel
+        const headerColor = '#2c3e50';
+        const altRowColor = '#f1f1f1';
+        const defaultColor = '#ffffff';
+        let yPosition = 100;
+
+        const colPositions = {
+            folio: 45,
+            cliente: 100,
+            vehiculo: 200,
+            manoObra: 370,
+            total: 450
+        };
+
+        // Encabezados
+        doc.font('Helvetica-Bold')
+            .fontSize(10)
+            .fillColor('#ffffff')
+            .rect(40, yPosition, 520, 20)
+            .fill(headerColor)
+            .text('FOLIO', colPositions.folio, yPosition + 5)
+            .text('CLIENTE', colPositions.cliente, yPosition + 5)
+            .text('VEHÍCULO', colPositions.vehiculo, yPosition + 5)
+            .text('MANO OBRA', colPositions.manoObra, yPosition + 5)
+            .text('TOTAL', colPositions.total, yPosition + 5);
+
+        yPosition += 25;
+
+        let totalGeneral = 0;
+        let totalManoObra = 0;
+
+        doc.font('Helvetica').fontSize(9);
+
+        for (let index = 0; index < ingresosResult.recordset.length; index++) {
+            const ingreso = ingresosResult.recordset[index];
+
+            const manoObra = typeof ingreso.Mano_Obra === 'number' ? ingreso.Mano_Obra : 0;
+            const totalIngreso = typeof ingreso.Total === 'number' ? ingreso.Total : 0;
+            const rowColor = index % 2 === 0 ? defaultColor : altRowColor;
+
+            // Fondo fila
+            doc.rect(40, yPosition - 2, 520, 20).fill(rowColor);
+
+            doc.fillColor('#2c3e50')
+                .text(ingreso.Folio ?? 'N/A', colPositions.folio, yPosition)
+                .text(`${ingreso.Nombre ?? ''} ${ingreso.Apellido ?? ''}`.trim(), colPositions.cliente, yPosition)
+                .text(`${ingreso.Marca ?? ''} ${ingreso.Modelo ?? ''} (${ingreso.Placas ?? 'N/A'})`, colPositions.vehiculo, yPosition)
+                .text(`$${manoObra.toFixed(2)}`, colPositions.manoObra, yPosition)
+                .text(`$${totalIngreso.toFixed(2)}`, colPositions.total, yPosition);
+
+            yPosition += 20;
+
+            // Detalle piezas
+            const piezasResult = await pool.request()
+                .input('IDIngreso', sql.Int, ingreso.IDIngreso)
+                .query(`
+                    SELECT 
+                        p.Nombre_pieza,
+                        dp.Cantidad_Usada AS Cantidad,
+                        dp.Precio,
+                        (dp.Cantidad_Usada * dp.Precio) AS Total
+                    FROM DetallePiezas dp
+                    JOIN Piezas p ON dp.IDPieza = p.IDPieza
+                    WHERE dp.IDIngreso = @IDIngreso
+                `);
+
+            if (piezasResult.recordset.length > 0) {
+                doc.fontSize(8).fillColor('#444444');
+                piezasResult.recordset.forEach(pieza => {
+                    const cantidad = typeof pieza.Cantidad === 'number' ? pieza.Cantidad : 0;
+                    const precio = typeof pieza.Precio === 'number' ? pieza.Precio : 0;
+                    const nombre = pieza.Nombre_pieza ?? 'Sin nombre';
+                    doc.text(`› ${nombre} (${cantidad} x $${precio.toFixed(2)})`, colPositions.cliente, yPosition);
+                    yPosition += 15;
+                });
+            }
+
+            totalGeneral += totalIngreso;
+            totalManoObra += manoObra;
+            yPosition += 10;
+        }
+
+        // Totales
+        const margen = totalGeneral > 0 ? ((totalManoObra / totalGeneral) * 100).toFixed(2) : '0.00';
+
+        yPosition += 20;
+        doc.fillColor('#000000').fontSize(10).font('Helvetica-Bold');
+        doc.text('TOTAL MANO DE OBRA:', 350, yPosition)
+            .text(`$${totalManoObra.toFixed(2)}`, 470, yPosition, { align: 'right' });
+
+        yPosition += 15;
+        doc.text('TOTAL GENERAL:', 350, yPosition)
+            .text(`$${totalGeneral.toFixed(2)}`, 470, yPosition, { align: 'right' });
+
+        yPosition += 15;
+        doc.text('MARGEN TOTAL:', 350, yPosition)
+            .text(`${margen}%`, 470, yPosition, { align: 'right' });
+
+        // Pie de página
+        doc.fontSize(8).fillColor('#777777')
+            .text(`Generado el ${new Date().toLocaleDateString()}`, 40, 780);
+
+        doc.end();
+    } catch (error) {
+        console.error("Error al generar reporte:", error);
+        if (!res.headersSent) {
+            res.status(500).send('Error interno del servidor');
+        }
+    }
+});
+
+

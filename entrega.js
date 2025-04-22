@@ -223,14 +223,22 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     });
     
-    // Imprimir recibo (placeholder)
-    printBtn.addEventListener('click', () => {
+    printBtn.addEventListener('click', async () => {
         if (!currentIngresoId) {
             alert('No hay un ingreso seleccionado');
             return;
         }
         
-        // Aquí implementarías la lógica para imprimir el recibo
-        alert('Funcionalidad de impresión será implementada aquí');
+        try {
+            const urlServidor = await obtenerURLServidor();
+            const folio = folioInput.value;
+            const pdfUrl = `${urlServidor}/generar-pdf-entrega?folio=${encodeURIComponent(folio)}`;
+            
+            // Abrir el PDF en una nueva pestaña
+            window.open(pdfUrl, '_blank');
+        } catch (error) {
+            console.error('Error al generar PDF:', error);
+            alert('Error al generar el recibo: ' + error.message);
+        }
     });
 });

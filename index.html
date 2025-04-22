@@ -38,6 +38,14 @@
             </li>
             <li class="menu__item"><a href="#" class="protected" id="entregaMenu">Entrega</a></li>
             <li class="menu__item"><a href="#" class="protected" id="catalogoMenu">Catalogo</a></li>
+            <li class="submenu">
+                <a href="#" class="protected" id="reportesMenu">Reportes</a>
+                <ul class="dropdown">
+                    <li><a href="#" id="reporteSemanalBtn" class="protected">Venta Semanal</a></li>
+                    <li><a href="#" id="reporteMensualBtn" class="protected">Venta Mensual</a></li>
+                    <li><a href="#" id="reporteGananciasBtn" class="protected">Margen de Ganancias</a></li>
+                </ul>
+            </li>
             <li class="menu__item logout-btn"><a href="#" id="logoutBtn">Cerrar Sesion</a></li>
         </ul>
     </nav>
@@ -68,6 +76,45 @@
 </div>
     <script src="script.js"></script>
     <script src="foliosdeldia.js"></script>
-    <script src="node_modules/socket.io-client/dist/socket.io.min.js"></script>    
+    <script src="node_modules/socket.io-client/dist/socket.io.min.js"></script>
+    <script>
+        const { ipcRenderer } = window.electron;
+    
+        window.addEventListener("DOMContentLoaded", () => {
+            // Guardar datos del usuario al logearse
+            ipcRenderer.on("login-success", (event, user) => {
+                document.getElementById("loggedInUser").textContent = user.usuario;
+    
+                // Guardar en localStorage o variable global
+                window.usuarioRol = user.rol;
+    
+                // Si no es admin, ocultamos el menú de reportes
+                if (user.rol !== "admin") {
+                    document.getElementById("reportesMenu").style.display = "none";
+                    document.getElementById("opcionesMenu").style.display = "none";
+                }
+            });
+    
+            // Prevención manual (por si lo llaman desde consola)
+            const reportesProtegidos = [
+                "reporteSemanalBtn", 
+                "reporteMensualBtn", 
+                "reporteGananciasBtn"
+            ];
+    
+            reportesProtegidos.forEach(id => {
+                const boton = document.getElementById(id);
+                if (boton) {
+                    boton.addEventListener("click", (e) => {
+                        if (window.usuarioRol !== "admin") {
+                            e.preventDefault();
+                            alert("Acceso denegado. Esta sección es solo para administradores.");
+                        }
+                    });
+                }
+            });
+        });
+    </script>
+        
 </body>
 </html>

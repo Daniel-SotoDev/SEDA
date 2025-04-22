@@ -34,8 +34,27 @@ function checkLoginStatus() {
     const usuario = localStorage.getItem("usuario");
     const rol = localStorage.getItem("rol");
 
+    const opcionesProtegidas = [
+        "crearSucursalBtn",
+        "crearUsuarioBtn",
+        "crearAsesorBtn"
+    ];
+    
+    opcionesProtegidas.forEach(id => {
+        const boton = document.getElementById(id);
+        if (boton) {
+            boton.addEventListener("click", (e) => {
+                if (rol !== "admin") {
+                    e.preventDefault();
+                    alert("Acceso denegado. Solo administradores pueden acceder a esta sección.");
+                }
+            });
+        }
+    });
+
     const protectedLinks = document.querySelectorAll(".protected");
     const loggedInUser = document.getElementById("loggedInUser");
+    const reportesMenu = document.getElementById("reportesMenu");
 
     if (isLoggedIn) {
         protectedLinks.forEach(link => {
@@ -43,6 +62,12 @@ function checkLoginStatus() {
             link.style.pointerEvents = "auto";
             link.style.opacity = "1";
         });
+        // Ocultar menú de reportes si el rol no es admin
+        if (rol === "admin") {
+            reportesMenu.style.display = "inline-block";
+        } else {
+            reportesMenu.style.display = "none";
+        }
         loggedInUser.textContent = `${usuario} (${rol})`;
     } else {
         protectedLinks.forEach(link => {
@@ -50,6 +75,7 @@ function checkLoginStatus() {
             link.style.pointerEvents = "none";
             link.style.opacity = "0.5";
         });
+        reportesMenu.style.display = "none";
         loggedInUser.textContent = "No logeado";
     }
 }
@@ -68,51 +94,60 @@ closeModal?.addEventListener("click", () => {
 });
 
 loginForm?.addEventListener("submit", async (e) => {
-    e.preventDefault(); // Evitar el envío del formulario
+    e.preventDefault();
 
     const username = document.getElementById("username").value;
     const password = document.getElementById("password").value;
+    const formElements = loginForm.querySelectorAll("input, button");
 
-    if (username && password) {
-        // Deshabilitar el formulario mientras se procesa la solicitud
-        const formElements = loginForm.querySelectorAll("input, button");
-        formElements.forEach(element => element.disabled = true);
-        try {
-            const urlServidor = await obtenerURLServidor(); // Obtén la URL del servidor
-            const response = await fetch(`${urlServidor}/login`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ usuario: username, contraseña: password }),
+    if (!username || !password) {
+        alert("Debes ingresar un nombre de usuario y una contraseña.");
+        return;
+    }
+
+    // Deshabilitar inputs mientras se procesa
+    formElements.forEach(el => el.disabled = true);
+
+    try {
+        const urlServidor = await obtenerURLServidor();
+        const response = await fetch(`${urlServidor}/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ usuario: username, contraseña: password }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            // Error: limpiar password, mostrar error y enfocar
+            alert(data.error || "Error al iniciar sesión.");
+            document.getElementById("password").value = "";
+            document.getElementById("password").focus();
+
+            // Si estás mostrando un error visual, puedes ocultarlo al teclear
+            document.getElementById("password").addEventListener("input", () => {
+                // document.getElementById("loginErrorMsg").style.display = "none";
             });
 
-            if (!response.ok) {
-                throw new Error("Error en la respuesta del servidor");
-            }
-
-            const data = await response.json();
-
-            if (data.success) {
-                localStorage.setItem("loggedIn", true);
-                localStorage.setItem("usuario", data.usuario);
-                localStorage.setItem("rol", data.rol);
-                checkLoginStatus();
-                hideLoginModal();
-                alert("Sesión iniciada correctamente.");
-                loginForm.reset();
-            } else {
-                alert(data.error || "Error al iniciar sesión.");
-            }
-        } catch (error) {
-            console.error("Error en login:", error);
-            alert("Error en el servidor. Revisa la consola para más detalles.");
-        } finally {
-            // Habilitar el formulario después de completar la solicitud
-            formElements.forEach(element => element.disabled = false);
+            return;
         }
-    } else {
-        alert("Debes ingresar un nombre de usuario y una contraseña.");
+
+        // Éxito
+        localStorage.setItem("loggedIn", true);
+        localStorage.setItem("usuario", data.usuario);
+        localStorage.setItem("rol", data.rol);
+        checkLoginStatus();
+        hideLoginModal();
+        alert("Sesión iniciada correctamente.");
+        loginForm.reset();
+    } catch (error) {
+        console.error("Error en login:", error);
+        alert("Error en el servidor. Revisa la consola para más detalles.");
+    } finally {
+        formElements.forEach(el => el.disabled = false);
     }
 });
+
 
 // Manejar el clic en el botón de "Cerrar Sesión"
 document.getElementById("logoutBtn")?.addEventListener("click", (e) => {
@@ -135,6 +170,26 @@ document.getElementById("crearSucursalBtn").addEventListener("click", () => {
     ipcRenderer.send("abrir-crear-sucursal");
 });
 
+// Reportes
+document.getElementById("reporteSemanalBtn")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    ipcRenderer.send("abrir-reporte-semanal");
+});
+
+document.getElementById("reporteMensualBtn")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    ipcRenderer.send("abrir-reporte-mensual");
+});
+
+document.getElementById("reporteGananciasBtn")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    ipcRenderer.send("abrir-reporte-ganancias");
+});
+
+// Función para cargar ventanas (si es necesaria)
+function cargarVentana(archivo) {
+    ipcRenderer.send("abrir-ventana-generica", archivo);
+}
 document.getElementById("crearUsuarioBtn").addEventListener("click", () => {
     ipcRenderer.send("abrir-crear-usuario");
 });

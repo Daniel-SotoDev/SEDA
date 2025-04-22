@@ -301,17 +301,33 @@ if (![1, 2, 3].includes(Number(idEstatus))) {
             body: JSON.stringify(cotizacionData),
         });
         const data = await response.json();
-        alert(data.message || "Cotización registrada correctamente");
-        form.reset();
-        piezasSeleccionadas = [];
-        actualizarTablaPiezasSeleccionadas();
+
+        if (!response.ok) {
+            throw new Error(data.error || "Error al guardar");
+        }
+
+        const folioGuardado = folioInput.value;
+        
+            document.getElementById("IDCliente").value = "";
+            document.getElementById("IDClienteHidden").value = "";
+            document.getElementById("IDVehiculo").value = "";
+            document.getElementById("IDVehiculoHidden").value = "";
+            document.getElementById("Falla").value = "";
+            document.getElementById("manoObra").value = "";
+            document.getElementById("Estatus").value = "1";
+            piezasSeleccionadas = [];
+            actualizarTablaPiezasSeleccionadas();
+
+            await generarFolio(); 
+            folioInput.value = folioGuardado;
+
+            alert(data.message || "Cotización registrada correctamente");
+
     } catch (error) {
         console.error("Error al registrar cotización:", error);
         alert("Error al registrar cotización");
     }
 });
-});
-
 async function cargarPiezasVehiculo(IDVehiculo) {
     try {
         const urlServidor = await obtenerURLServidor();
@@ -336,3 +352,34 @@ async function cargarPiezasVehiculo(IDVehiculo) {
         alert("No se pudieron cargar las piezas");
     }
 }
+
+document.getElementById('btnPDF').addEventListener('click', async () => {
+    try {
+        const folio = document.getElementById('folio').value;
+        console.log('Intentando generar PDF para folio:', folio);
+        
+        if (!folio || folio === "C-ERROR-000001") {
+            throw new Error("Folio inválido o no generado");
+        }
+
+        const urlServidor = await obtenerURLServidor();
+        
+        // Verificar primero si existe
+        const responseCheck = await fetch(`${urlServidor}/buscarCotizaciones?filtro=${encodeURIComponent(folio)}`);
+        const dataCheck = await responseCheck.json();
+        
+        if (!dataCheck.length) {
+            throw new Error("La cotización no existe en el sistema");
+        }
+
+        // Generar PDF
+        window.open(`${urlServidor}/generar-pdf-cotizacion?folio=${encodeURIComponent(folio)}`, '_blank');
+        
+    } catch (error) {
+        console.error("Error en generación de PDF:", error);
+        alert(error.message || "Error al generar PDF");
+    }
+});
+
+});
+

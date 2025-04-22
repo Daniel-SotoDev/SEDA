@@ -1,0 +1,127 @@
+/* styles/reportes.css ajustado a ventanas 400x200 o 500x250 */
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #1a2a4a 0%, #2c3e50 100%);
+    color: #e0e0e0;
+    width: 100vw;
+    height: 100vh;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+}
+
+.modal {
+    background: rgba(30, 58, 95, 0.9);
+    width: 90%;
+    max-width: 360px;
+    height: auto;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(5px);
+    border: 1px solid rgba(163, 208, 248, 0.2);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    max-height: 90vh;
+}
+
+.main__title {
+    color: #A3D0F8;
+    text-align: center;
+    font-size: 1.4em;
+    margin-bottom: 15px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    letter-spacing: 1px;
+}
+.close-btn {
+    background: #cf061a;
+    color: #f5f3f3;
+    border: none;
+    font-size: 14px;
+    font-weight: bold;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 15%;
+    cursor: pointer;
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.close-btn:hover {
+    background: #a71d2a;
+    transform: scale(1.05);
+}
+
+.row {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.form__group {
+    display: flex;
+    flex-direction: column;
+}
+
+.label__form {
+    color: #A3D0F8;
+    font-weight: bold;
+    font-size: 0.85em;
+    margin-bottom: 4px;
+}
+
+input[type="date"] {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid rgba(163, 208, 248, 0.4);
+    background: rgba(10, 25, 47, 0.7);
+    border-radius: 5px;
+    font-size: 0.9em;
+    color: #e0e0e0;
+    transition: all 0.3s ease;
+}
+
+input[type="date"]:focus {
+    outline: none;
+    border-color: #A3D0F8;
+    box-shadow: 0 0 0 2px rgba(163, 208, 248, 0.2);
+}
+input{
+    font-family: sans-serif;
+}
+.register-btn {
+    background: linear-gradient(to right, #4A90E2, #5D9CE6);
+    color: #fff;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.85em;
+    font-weight: bold;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    letter-spacing: 0.5px;
+}
+
+.register-btn:hover {
+    background: linear-gradient(to right, #3A80D2, #4D8CD6);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.button-container {
+    display: flex;
+    justify-content: center;
+}

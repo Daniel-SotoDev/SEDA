@@ -151,7 +151,7 @@
                 </table>
                 <div class="total__container">
                     <label for="manoObra">Mano de Obra:</label>
-                    <input type="number" id="manoObra" step="0.01" min="0" oninput="actualizarTotal()">
+                    <input type="number" id="manoObra" step="0.01" min="0">
                 </div>
                 <div class="total__container">
                     <label for="totalCotizacion">Total Cotización:</label>
@@ -169,6 +169,7 @@
 
             <div class="button-container">
                 <button type="submit" class="register-btn">Registrar Cotización</button>
+                <button type="button" id="btnPDF" class="register-btn">Generar PDF</button>
             </div>
         </form>
     </div>

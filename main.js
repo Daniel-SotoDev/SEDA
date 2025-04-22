@@ -375,6 +375,69 @@ ipcMain.on("abrir-catalogo", () => {
         });
     }
 });
+ipcMain.on("abrir-ventana-generica", (event, archivo) => {
+    const ventana = new BrowserWindow({
+        width: 400,
+        height: 200,
+        parent: mainWindow,
+        modal: true,
+        frame: false,
+        webPreferences: {
+            preload: path.join(__dirname, "preload.js"),
+            contextIsolation: true,
+            enableRemoteModule: false,
+            webSecurity: true
+        }
+    });
+    ventana.loadFile(path.join(__dirname, archivo));
+});
+ipcMain.on("abrir-reporte-semanal", () => {
+    const reporteWindow = new BrowserWindow({
+        width: 450,
+        height: 300,
+        parent: mainWindow,
+        modal: true,
+        frame: false,
+        webPreferences: {
+            preload: path.join(__dirname, "preload.js"),
+            contextIsolation: true
+        }
+    });
+    reporteWindow.loadFile(path.join(__dirname, "reporte-semanal.html"));
+});
+ipcMain.on("abrir-reporte-mensual", () => {
+    const reporteWindow = new BrowserWindow({
+        width: 450,
+        height: 300,
+        parent: mainWindow,
+        modal: true,
+        frame: false,
+        webPreferences: {
+            preload: path.join(__dirname, "preload.js"),
+            contextIsolation: true
+        }
+    });
+    reporteWindow.loadFile(path.join(__dirname, "reporte-mensual.html"));
+});
+ipcMain.on("abrir-reporte-ganancias", () => {
+    const reporteWindow = new BrowserWindow({
+        width: 450,
+        height: 300,
+        parent: mainWindow,
+        modal: true,
+        frame: false,
+        webPreferences: {
+            preload: path.join(__dirname, "preload.js"),
+            contextIsolation: true
+        }
+    });
+    reporteWindow.loadFile(path.join(__dirname, "reporte-ganancias.html"));
+});
+ipcMain.on('cerrar-ventana', () => {
+    if (reporteWindow) {
+        reporteWindow.close();
+    }
+});
 
 ipcMain.on("login-attempt", async (event, { username, password }) => {
     try {
@@ -391,8 +454,12 @@ ipcMain.on("login-attempt", async (event, { username, password }) => {
         }
 
         const passwordMatch = await bcrypt.compare(password, user.password);
-        if (passwordMatch) {
-            event.reply("login-success");
+            if (passwordMatch) {
+                const userData = { 
+                    usuario: user.usuario, 
+                    rol: user.rol // Asegúrate que tu tabla tiene esta columna
+                };
+                event.reply("login-success", userData);
 
             if (loginWindow) {
                 loginWindow.close();
