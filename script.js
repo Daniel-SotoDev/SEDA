@@ -1,7 +1,8 @@
-const ipcRenderer = window.electron;
+const { send } = window.electronAPI;
 console.log("Electron:", window.electron);
 
-async function obtenerURLServidor() {
+const URL_SERVIDOR = "http://localhost:4000";
+/*async function obtenerURLServidor() {
     try {
         const response = await fetch(window.location.origin + "/config.json");
         if (!response.ok) throw new Error("No se pudo obtener config.json");
@@ -11,7 +12,7 @@ async function obtenerURLServidor() {
         console.error("Error obteniendo la URL del servidor:", error);
         return "http://127.0.0.1:4000";
     }
-}
+} */
 
 // Obtener referencias a los elementos del modal
 const loginModal = document.getElementById("loginModal");
@@ -109,7 +110,7 @@ loginForm?.addEventListener("submit", async (e) => {
     formElements.forEach(el => el.disabled = true);
 
     try {
-        const urlServidor = await obtenerURLServidor();
+        const urlServidor = URL_SERVIDOR;
         const response = await fetch(`${urlServidor}/login`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -167,67 +168,67 @@ document.getElementById("logoutBtn")?.addEventListener("click", (e) => {
 document.addEventListener("DOMContentLoaded", checkLoginStatus);
 // Detectar clic en el submenú de Opciones
 document.getElementById("crearSucursalBtn").addEventListener("click", () => {
-    ipcRenderer.send("abrir-crear-sucursal");
+    send("abrir-crear-sucursal");
 });
 
 // Reportes
 document.getElementById("reporteSemanalBtn")?.addEventListener("click", (e) => {
     e.preventDefault();
-    ipcRenderer.send("abrir-reporte-semanal");
+    send("abrir-reporte-semanal");
 });
 
 document.getElementById("reporteMensualBtn")?.addEventListener("click", (e) => {
     e.preventDefault();
-    ipcRenderer.send("abrir-reporte-mensual");
+    send("abrir-reporte-mensual");
 });
 
 document.getElementById("reporteGananciasBtn")?.addEventListener("click", (e) => {
     e.preventDefault();
-    ipcRenderer.send("abrir-reporte-ganancias");
+    send("abrir-reporte-ganancias");
 });
 
 // Función para cargar ventanas (si es necesaria)
 function cargarVentana(archivo) {
-    ipcRenderer.send("abrir-ventana-generica", archivo);
+    send("abrir-ventana-generica", archivo);
 }
 document.getElementById("crearUsuarioBtn").addEventListener("click", () => {
-    ipcRenderer.send("abrir-crear-usuario");
+    send("abrir-crear-usuario");
 });
 //CREAR ASESORES
 document.getElementById("crearAsesorBtn").addEventListener("click", () => {
-    ipcRenderer.send("abrir-crear-asesor");
+    send("abrir-crear-asesor");
 });
 //detecta click en el submenu de nuevo vehiculo
 document.getElementById("catalogoMenu").addEventListener("click", () => {
-    ipcRenderer.send("abrir-catalogo");
+    send("abrir-catalogo");
 });
 //detecta click en el submenu de nuevo vehiculo
 document.getElementById("nuevoVehiculoBtn").addEventListener("click", () => {
-    ipcRenderer.send("abrir-nuevo-vehiculo");
+    send("abrir-nuevo-vehiculo");
 });
 //detectar click en el submenu de nuevo cliente
 document.getElementById("nuevoClienteBtn").addEventListener("click", () => {
-    ipcRenderer.send("abrir-nuevo-cliente");
+    send("abrir-nuevo-cliente");
 });
 // detectar el click en nuevo ingreso
 document.getElementById("nuevoIngresoBtn").addEventListener("click", () => {
-    ipcRenderer.send("abrir-nuevo-ingreso");
+    send("abrir-nuevo-ingreso");
 });
 // detecta click en diagnostico
 document.getElementById("diagnosticoBtn").addEventListener("click", () => {
-    ipcRenderer.send("abrir-diagnosticos");
+    send("abrir-diagnosticos");
 });
 //detecta click en cotizaciones
 document.getElementById("cotizacionesMenu").addEventListener("click", () => {
-    ipcRenderer.send("abrir-cotizaciones");
+    send("abrir-cotizaciones");
 });
 //ENTREGAS 
 document.getElementById("entregaMenu").addEventListener("click", () => {
-    ipcRenderer.send("abrir-entrega");
+    send("abrir-entrega");
 });
 //detecta click en clientes
 document.getElementById("clientesMenu").addEventListener("click", () => {
-    ipcRenderer.send("abrir-clientes");
+    send("abrir-clientes");
 });
 
 

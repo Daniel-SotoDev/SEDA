@@ -3,7 +3,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     let folioActual = null;
     let IDCotizacionActual = null;
 
-    async function obtenerURLServidor() {
+    const URL_SERVIDOR = "http://localhost:4000";
+
+    /*async function obtenerURLServidor() {
         try {
             const response = await fetch(window.location.origin + "/config.json");
             const config = await response.json();
@@ -13,7 +15,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             alert("No se pudo conectar al servidor.");
             return null;
         }
-    }
+    } */
     document.getElementById("closeModal").addEventListener("click", () => {
         window.close();
     });
@@ -99,8 +101,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (!filtro) return;
 
         try {
-            const urlServidor = await obtenerURLServidor();
-            const response = await fetch(`${urlServidor}/buscarCotizaciones?filtro=${filtro}`);
+            const response = await fetch(`${URL_SERVIDOR}/buscarCotizaciones?filtro=${filtro}`);
             const cotizaciones = await response.json();
             
             const contenedor = document.getElementById('tablaFolios').parentElement;
@@ -115,17 +116,15 @@ document.addEventListener("DOMContentLoaded", async () => {
      // Cargar datos de cotización
     async function cargarDatosCotizacion(IDCotizacion) {
         try {
-            const urlServidor = await obtenerURLServidor();
-            
-            const responseCotizacion = await fetch(`${urlServidor}/obtenerCotizacionCompleta?id=${IDCotizacion}`);
+            const responseCotizacion = await fetch(`${URL_SERVIDOR}/obtenerCotizacionCompleta?id=${IDCotizacion}`);
             const dataCotizacion = await responseCotizacion.json();
     
-            const responseIngreso = await fetch(`${urlServidor}/obtenerIngresoPorCotizacion?id=${IDCotizacion}`);
+            const responseIngreso = await fetch(`${URL_SERVIDOR}/obtenerIngresoPorCotizacion?id=${IDCotizacion}`);
             const ingreso = await responseIngreso.json();
     
             if (ingreso) {
                 folioActual = ingreso.Folio;
-            const responseDiagnostico = await fetch(`${urlServidor}/obtenerDiagnostico?folio=${ingreso.Folio}`);
+            const responseDiagnostico = await fetch(`${URL_SERVIDOR}/obtenerDiagnostico?folio=${ingreso.Folio}`);
             const diagnostico = await responseDiagnostico.json();
 
             // Actualizar campos del formulario
@@ -141,11 +140,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             } else {
                 // Generar nuevo folio para el ingreso
-                const responseFolio = await fetch(`${urlServidor}/generarFolioIngreso`);
+                const responseFolio = await fetch(`${URL_SERVIDOR}/generarFolioIngreso`);
                 const { folio } = await responseFolio.json();
                 folioActual = folio;
 
-                await fetch(`${urlServidor}/crearIngresoInicial`, {
+                await fetch(`${URL_SERVIDOR}/crearIngresoInicial`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
@@ -204,8 +203,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (!filtro) return;
 
         try {
-            const urlServidor = await obtenerURLServidor();
-            const response = await fetch(`${urlServidor}/obtenerPiezas?filtro=${filtro}`);
+            const response = await fetch(`${URL_SERVIDOR}/obtenerPiezas?filtro=${filtro}`);
             const piezas = await response.json();
             
             const contenedor = document.getElementById('tablaPiezas').parentElement;
@@ -235,8 +233,7 @@ document.getElementById('btnAgregarPieza').addEventListener('click', async () =>
     }
 
     try {
-        const urlServidor = await obtenerURLServidor();
-        const response = await fetch(`${urlServidor}/verificarStockPieza?id=${idPieza}&cantidad=${cantidad}`);
+        const response = await fetch(`${URL_SERVIDOR}/verificarStockPieza?id=${idPieza}&cantidad=${cantidad}`);
         const resultado = await response.json();
         
         if (!resultado.suficiente) {
@@ -249,7 +246,7 @@ document.getElementById('btnAgregarPieza').addEventListener('click', async () =>
         if (index >= 0) {
             // Verificar stock total si ya existe
             const nuevaCantidad = piezasSeleccionadas[index].cantidad + cantidad;
-            const responseTotal = await fetch(`${urlServidor}/verificarStockPieza?id=${idPieza}&cantidad=${nuevaCantidad}`);
+            const responseTotal = await fetch(`${URL_SERVIDOR}/verificarStockPieza?id=${idPieza}&cantidad=${nuevaCantidad}`);
             const resultadoTotal = await responseTotal.json();
             
             if (!resultadoTotal.suficiente) {
@@ -331,11 +328,9 @@ document.getElementById('btnGuardar').addEventListener('click', async () => {
     }
     // Validar stock antes de guardar
     try {
-        const urlServidor = await obtenerURLServidor();
-        
         // Verificar stock para cada pieza
         for (const pieza of piezasSeleccionadas) {
-            const response = await fetch(`${urlServidor}/verificarStockPieza?id=${pieza.IDPieza}&cantidad=${pieza.cantidad}`);
+            const response = await fetch(`${URL_SERVIDOR}/verificarStockPieza?id=${pieza.IDPieza}&cantidad=${pieza.cantidad}`);
             const resultado = await response.json();
             
             if (!resultado.suficiente) {
@@ -343,7 +338,7 @@ document.getElementById('btnGuardar').addEventListener('click', async () => {
             }
         }
 
-        const response = await fetch(`${urlServidor}/guardarDiagnostico`, {
+        const response = await fetch(`${URL_SERVIDOR}/guardarDiagnostico`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -374,11 +369,10 @@ document.getElementById('btnPDF').addEventListener('click', async () => {
     }
 
     try {
-        const urlServidor = await obtenerURLServidor();
         
         // Crear un enlace temporal para descargar el PDF
         const link = document.createElement('a');
-        link.href = `${urlServidor}/generar-pdf-diagnostico?folio=${encodeURIComponent(folioActual)}`;
+        link.href = `${URL_SERVIDOR}/generar-pdf-diagnostico?folio=${encodeURIComponent(folioActual)}`;
         link.target = '_blank';
         link.download = `diagnostico_${folioActual}.pdf`;
         

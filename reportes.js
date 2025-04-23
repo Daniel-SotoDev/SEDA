@@ -16,7 +16,7 @@ async function generarReporte(tipo) {
             return;
         }
 
-        const urlServidor = await obtenerURLServidor();
+        const URL_SERVIDOR = "http://localhost:4000";
         let fechaInicio = document.getElementById("fechaInicio")?.value;
         let fechaFin = document.getElementById("fechaFin")?.value;
 
@@ -31,21 +31,9 @@ async function generarReporte(tipo) {
             usuario
         });
 
-        const pdfUrl = `${urlServidor}/generar-reporte-ventas?${params.toString()}`;
+        const pdfUrl = `${URL_SERVIDOR}/generar-reporte-ventas?${params.toString()}`;
         window.open(pdfUrl, "_blank");
     } catch (error) {
         alert(error.message || "Error generando el reporte.");
-    }
-}
-
-async function obtenerURLServidor() {
-    try {
-        const response = await fetch(window.location.origin + "/config.json");
-        if (!response.ok) throw new Error("Error obteniendo configuración");
-        const config = await response.json();
-        return `http://127.0.0.1:${config.puerto}`;
-    } catch (error) {
-        console.error("Error al obtener el puerto del servidor:", error);
-        return "http://127.0.0.1:4000";
     }
 }

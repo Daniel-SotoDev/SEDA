@@ -23,18 +23,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     
     let currentIngresoId = null;
     
-    // Función para obtener la URL del servidor
-    async function obtenerURLServidor() {
-        try {
-            const response = await fetch(window.location.origin + "/config.json");
-            if (!response.ok) throw new Error("No se pudo obtener config.json");
-            const config = await response.json();
-            return `http://127.0.0.1:${config.puerto}`;
-        } catch (error) {
-            console.error("Error obteniendo la URL del servidor:", error);
-            return "http://127.0.0.1:4000";
-        }
-    }
+    const URL_SERVIDOR = "http://localhost:4000";
+
     
     // Cerrar ventana
     closeBtn.addEventListener('click', () => {
@@ -54,8 +44,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (!filtro) return;
         
         try {
-            const urlServidor = await obtenerURLServidor();
-            const response = await fetch(`${urlServidor}/buscarIngresosParaEntrega?filtro=${encodeURIComponent(filtro)}`);
+            const response = await fetch(`${URL_SERVIDOR}/buscarIngresosParaEntrega?filtro=${encodeURIComponent(filtro)}`);
             
             if (!response.ok) {
                 throw new Error('Error al buscar ingresos');
@@ -131,8 +120,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         
         // Cargar piezas utilizadas
         try {
-            const urlServidor = await obtenerURLServidor();
-            const response = await fetch(`${urlServidor}/obtenerPiezasPorIngreso?IDIngreso=${ingreso.IDIngreso}`);
+            const response = await fetch(`${URL_SERVIDOR}/obtenerPiezasPorIngreso?IDIngreso=${ingreso.IDIngreso}`);
             
             if (!response.ok) {
                 throw new Error(`Error ${response.status}: ${response.statusText}`);
@@ -193,8 +181,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
         
         try {
-            const urlServidor = await obtenerURLServidor();
-            const response = await fetch(`${urlServidor}/registrarEntrega`, {
+            const response = await fetch(`${URL_SERVIDOR}/registrarEntrega`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -230,9 +217,8 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
         
         try {
-            const urlServidor = await obtenerURLServidor();
             const folio = folioInput.value;
-            const pdfUrl = `${urlServidor}/generar-pdf-entrega?folio=${encodeURIComponent(folio)}`;
+            const pdfUrl = `${URL_SERVIDOR}/generar-pdf-entrega?folio=${encodeURIComponent(folio)}`;
             
             // Abrir el PDF en una nueva pestaña
             window.open(pdfUrl, '_blank');

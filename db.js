@@ -15,11 +15,11 @@ const dbConfig = {
 const poolPromise = new sql.ConnectionPool(dbConfig)
     .connect()
     .then(pool => {
-        console.log("✅ Conectado a la base de datos");
+        console.log(" Conectado a la base de datos");
         return pool;
     })
     .catch(err => {
-        console.error("❌ Error al conectar a la base de datos:", err);
+        console.error(" Error al conectar a la base de datos:", err);
     });
 
 module.exports = { sql, poolPromise };

@@ -87,9 +87,9 @@
                     window.close();
                 });
             }
-
+            const URL_SERVIDOR = "http://localhost:4000";
             // Obtener el puerto dinámico desde config.json
-            async function obtenerURLServidor() {
+            /*async function obtenerURLServidor() {
                 try {
                     const response = await fetch(window.location.origin + "/config.json");
                     if (response.ok) {
@@ -100,13 +100,12 @@
                     console.error("Error obteniendo la URL del servidor:", error);
                     return "http://127.0.0.1:4000"; // Fallback
                 }
-            }
+            } */
 
             // Función para buscar clientes
             async function buscarClientes(filtro) {
                 console.log("Buscando clientes con filtro:", filtro);
-                const urlServidor = await obtenerURLServidor();
-                const response = await fetch(`${urlServidor}/buscarClientes?filtro=${encodeURIComponent(filtro)}`);
+                const response = await fetch(`${URL_SERVIDOR}/buscarClientes?filtro=${encodeURIComponent(filtro)}`);
                 
                 if (!response.ok) {
                     console.error("Error en la respuesta del servidor:", response.statusText);
@@ -197,8 +196,7 @@
                 }
 
                 try {
-                    const urlServidor = await obtenerURLServidor();
-                    const response = await fetch(`${urlServidor}/registrar-vehiculo`, {
+                    const response = await fetch(`${URL_SERVIDOR}/registrar-vehiculo`, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify(vehiculoData),

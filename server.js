@@ -14,9 +14,14 @@ const net = require("net");
 const PDFDocument = require('pdfkit');
 const blobStream = require('blob-stream');
 
+
 const app = express()
 
-app.use(express.static(__dirname));
+app.use(express.static(
+    process.env.NODE_ENV === 'production' 
+    ? path.join(process.resourcesPath, 'app.asar.unpacked')
+    : __dirname
+));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors({ origin: "*", methods: ["GET", "POST"], allowedHeaders: ["Content-Type"] }));
@@ -35,6 +40,36 @@ app.get("/obtenerUltimoFolioCotizacion", async (req, res) => {
     } catch (error) {
         res.status(500).json({ error: "Error al obtener el folio" });
     }
+});
+
+const { ipcMain } = require('electron');
+const Store = require('electron-store');
+const store = new Store();
+
+const PUERTO = 4000; // Puerto fijo
+
+const server = http.createServer(app);
+const io = socketIo(server, {
+    cors: {
+        origin: `http://localhost:${PUERTO}`,
+        methods: ["GET", "POST"]
+    }
+});
+
+server.listen(PUERTO, () => {
+    console.log(`Servidor corriendo en http://localhost:${PUERTO}`);
+    fs.writeFileSync("config.json", JSON.stringify({ puerto: PUERTO }));
+});
+
+io.on("connection", (socket) => {
+    console.log("Cliente WebSocket conectado");
+    
+    // Enviar folios iniciales al conectar
+    socket.emit("actualizarFolios", []);
+
+    socket.on("disconnect", () => {
+        console.log("Cliente WebSocket desconectado");
+    });
 });
 
 
@@ -79,26 +114,6 @@ app.post("/login", async (req, res) => {
         res.status(500).json({ error: "Error en el servidor" });
     }
 });
-
-async function iniciarServidor() {
-    const puerto = await encontrarPuertoLibre();
-    fs.writeFile("config.json", JSON.stringify({ puerto: puerto }, null, 2), (err) => {
-        if (err) {
-            console.error("Error al guardar el puerto en config.json:", err);
-        } else {
-            console.log("Puerto guardado en config.json");
-        }
-    });
-
-    const server = http.createServer(app);
-    const io = socketIo(server, {
-        cors: { origin: "*", methods: ["GET", "POST"] }
-    });
-
-    io.on("connection", (socket) => {
-        console.log("Nuevo cliente conectado");
-        socket.on("disconnect", () => console.log("Cliente desconectado"));
-    });
 
     app.get("/generar-folio-cotizacion", async (req, res) => {
         try {
@@ -668,16 +683,13 @@ app.get("/obtenerEstatusCotizacion", async (req, res) => {
     }
 });
 
-server.listen(puerto, () => console.log(`Servidor corriendo en http://127.0.0.1:${puerto}`));
-}
-
-iniciarServidor();
+//iniciarServidor();
 
 app.get("/", (req, res) => {
     res.send("servidor funcionando correctamente");
 });
 
-function encontrarPuertoLibre(rangoInicio, rangoFin) {
+/*function encontrarPuertoLibre(rangoInicio, rangoFin) {
     return new Promise((resolve) => {
         const server = net.createServer();
         server.listen(0, () => {
@@ -686,17 +698,7 @@ function encontrarPuertoLibre(rangoInicio, rangoFin) {
         });
         server.on("error", () => resolve(encontrarPuertoLibre(rangoInicio, rangoFin)));
     });
-}
-
-/*(async () => {
-    const PORT = await encontrarPuertoLibre(4000, 9000);
-    app.listen(PORT, () => {
-        console.log(`Servidor corriendo en http://127.0.0.1:${PORT}`);
-
-        // Guardar el puerto en config.json para que el frontend lo lea
-        fs.writeFileSync("config.json", JSON.stringify({ puerto: PORT }, null, 2));
-    });
-})();*/
+} */
 
 // APARTADO PARA EL DIAGNOSTICO
 app.get("/obtenerDiagnostico", async (req, res) => {

@@ -19,8 +19,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     let vehiculoSeleccionado = null;
     let piezasSeleccionadas = [];
 
-
-    async function obtenerURLServidor() {
+    const URL_SERVIDOR = "http://localhost:4000";
+/*    async function obtenerURLServidor() {
         try {
             const response = await fetch(window.location.origin + "/config.json");
             const config = await response.json();
@@ -30,12 +30,11 @@ document.addEventListener("DOMContentLoaded", async () => {
             console.error("Error al obtener la configuración del servidor:", error);
             return "";
         }
-    }
+    } */
     
     async function generarFolio() {
         try {
-            const urlServidor = await obtenerURLServidor(); // Obtener la URL base
-            const response = await fetch(`${urlServidor}/generar-folio-cotizacion`);
+            const response = await fetch(`${URL_SERVIDOR}/generar-folio-cotizacion`);
             if (!response.ok)
                 throw new Error("Error al generar el folio");
             const data = await response.json();
@@ -50,8 +49,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 // Función para buscar clientes
 async function buscarClientes(filtro) {
-    const urlServidor = await obtenerURLServidor();
-    const response = await fetch(`${urlServidor}/buscarClientes?filtro=${encodeURIComponent(filtro)}`);
+    const response = await fetch(`${URL_SERVIDOR}/buscarClientes?filtro=${encodeURIComponent(filtro)}`);
     if (!response.ok) return;
 
     const clientes = await response.json();
@@ -89,8 +87,7 @@ async function buscarClientes(filtro) {
     // Función para buscar vehículos
     async function buscarVehiculos(filtro) {
         console.log("Buscando vehículos para el cliente:", filtro);
-        const urlServidor = await obtenerURLServidor();
-        const response = await fetch(`${urlServidor}/obtenerVehiculos?filtro=${encodeURIComponent(filtro)}`);
+        const response = await fetch(`${URL_SERVIDOR}/obtenerVehiculos?filtro=${encodeURIComponent(filtro)}`);
         if (!response.ok) return;
         
 
@@ -142,8 +139,7 @@ cantidad.addEventListener("input", () => {
    // Función para buscar piezas
     async function buscarPiezas(filtro) {
     console.log("Buscando piezas con filtro:", filtro);
-    const urlServidor = await obtenerURLServidor();
-    const response = await fetch(`${urlServidor}/obtenerPiezas?filtro=${encodeURIComponent(filtro)}`);
+    const response = await fetch(`${URL_SERVIDOR}/obtenerPiezas?filtro=${encodeURIComponent(filtro)}`);
     
     if (!response.ok) return;
     
@@ -294,8 +290,7 @@ if (![1, 2, 3].includes(Number(idEstatus))) {
         ManoObra: parseFloat(document.getElementById("manoObra").value) || 0
     };
     try {
-        const urlServidor = await obtenerURLServidor();
-        const response = await fetch(`${urlServidor}/registrar-cotizacion`, {
+        const response = await fetch(`${URL_SERVIDOR}/registrar-cotizacion`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(cotizacionData),
@@ -330,8 +325,7 @@ if (![1, 2, 3].includes(Number(idEstatus))) {
 });
 async function cargarPiezasVehiculo(IDVehiculo) {
     try {
-        const urlServidor = await obtenerURLServidor();
-        const response = await fetch(`${urlServidor}/obtenerPiezasPorVehiculo?IDVehiculo=${IDVehiculo}`);
+        const response = await fetch(`${URL_SERVIDOR}/obtenerPiezasPorVehiculo?IDVehiculo=${IDVehiculo}`);
         
         if (!response.ok) throw new Error("Error al cargar piezas");
         
@@ -361,11 +355,9 @@ document.getElementById('btnPDF').addEventListener('click', async () => {
         if (!folio || folio === "C-ERROR-000001") {
             throw new Error("Folio inválido o no generado");
         }
-
-        const urlServidor = await obtenerURLServidor();
         
         // Verificar primero si existe
-        const responseCheck = await fetch(`${urlServidor}/buscarCotizaciones?filtro=${encodeURIComponent(folio)}`);
+        const responseCheck = await fetch(`${URL_SERVIDOR}/buscarCotizaciones?filtro=${encodeURIComponent(folio)}`);
         const dataCheck = await responseCheck.json();
         
         if (!dataCheck.length) {
@@ -373,7 +365,7 @@ document.getElementById('btnPDF').addEventListener('click', async () => {
         }
 
         // Generar PDF
-        window.open(`${urlServidor}/generar-pdf-cotizacion?folio=${encodeURIComponent(folio)}`, '_blank');
+        window.open(`${URL_SERVIDOR}/generar-pdf-cotizacion?folio=${encodeURIComponent(folio)}`, '_blank');
         
     } catch (error) {
         console.error("Error en generación de PDF:", error);

@@ -2,7 +2,13 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.socket.io; connect-src 'self' ws://127.0.0.1:* wss://127.0.0.1:* http://127.0.0.1:* https://127.0.0.1:* http://localhost:* https://localhost:* https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com;">
+    <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' 'unsafe-inline' https://cdn.socket.io;
+    style-src 'self' 'unsafe-inline';
+    img-src 'self' data:;
+    connect-src 'self' ws://localhost:* http://localhost:*;
+">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Transmisiones Automáticas Frias </title>
     <link rel="stylesheet" href="./styles/styles.css">
@@ -78,42 +84,45 @@
     <script src="foliosdeldia.js"></script>
     <script src="node_modules/socket.io-client/dist/socket.io.min.js"></script>
     <script>
-        const { ipcRenderer } = window.electron;
+        const { send, receive } = window.electronAPI;
     
-        window.addEventListener("DOMContentLoaded", () => {
-            // Guardar datos del usuario al logearse
-            ipcRenderer.on("login-success", (event, user) => {
-                document.getElementById("loggedInUser").textContent = user.usuario;
-    
-                // Guardar en localStorage o variable global
-                window.usuarioRol = user.rol;
-    
-                // Si no es admin, ocultamos el menú de reportes
-                if (user.rol !== "admin") {
-                    document.getElementById("reportesMenu").style.display = "none";
-                    document.getElementById("opcionesMenu").style.display = "none";
-                }
-            });
-    
-            // Prevención manual (por si lo llaman desde consola)
-            const reportesProtegidos = [
-                "reporteSemanalBtn", 
-                "reporteMensualBtn", 
-                "reporteGananciasBtn"
-            ];
-    
-            reportesProtegidos.forEach(id => {
-                const boton = document.getElementById(id);
-                if (boton) {
-                    boton.addEventListener("click", (e) => {
-                        if (window.usuarioRol !== "admin") {
-                            e.preventDefault();
-                            alert("Acceso denegado. Esta sección es solo para administradores.");
-                        }
-                    });
-                }
-            });
+    window.addEventListener("DOMContentLoaded", () => {
+        // Escuchar el evento de login exitoso
+        receive('login-success', (user) => {
+            document.getElementById("loggedInUser").textContent = user.usuario;
+            
+            // Guardar en localStorage
+            localStorage.setItem("loggedIn", true);
+            localStorage.setItem("usuario", user.usuario);
+            localStorage.setItem("rol", user.rol);
+            
+            // Ocultar el menu de reportes si no es admin
+            if (user.rol !== "admin") {
+                document.getElementById("reportesMenu").style.display = "none";
+                document.getElementById("opcionesMenu").style.display = "none";
+            }
         });
+
+        
+        const reportesProtegidos = [
+            "reporteSemanalBtn", 
+            "reporteMensualBtn", 
+            "reporteGananciasBtn"
+        ];
+        
+        reportesProtegidos.forEach(id => {
+            const boton = document.getElementById(id);
+            if (boton) {
+                boton.addEventListener("click", (e) => {
+                    const rol = localStorage.getItem("rol");
+                    if (rol !== "admin") {
+                        e.preventDefault();
+                        alert("Acceso denegado. Esta sección es solo para administradores.");
+                    }
+                });
+            }
+        });
+    });
     </script>
         
 </body>

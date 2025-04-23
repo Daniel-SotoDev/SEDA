@@ -1,4 +1,12 @@
 const { app, BrowserWindow, ipcMain, Menu } = require("electron");
+const { fork } = require('child_process')
+const Store  = require('electron-store');
+const store = new Store({
+    defaults: {
+        serverPort: 4000,
+        configVersion: "1.0.0"
+    }
+});
 const path = require("path");
 const { sql, poolPromise } = require("./db");
 const bcrypt = require("bcryptjs");
@@ -16,8 +24,41 @@ let crearUsuarioWindow;
 let asesorWindow;
 let entregaWindow;
 let splashWindow;
+let serverProcess = null;
 
 app.disableHardwareAcceleration();
+
+function startServer() {
+    const serverPath = path.join(__dirname, 'server.js');
+    serverProcess = fork(serverPath, [], {
+        stdio: ['inherit', 'inherit', 'inherit', 'ipc'],
+        env: {
+            ...process.env,
+            ELECTRON_RUN_AS_NODE: '1'
+        }
+    });
+
+    serverProcess.on('message', (message) => {
+        console.log('Mensaje del servidor:', message);
+    });
+
+    serverProcess.on('error', (err) => {
+        console.error('Error en el servidor:', err);
+    });
+
+    serverProcess.on('exit', (code) => {
+        console.log('Servidor cerrado con código:', code);
+        serverProcess = null;
+    });
+}
+
+// Funcion para detener el servidor
+function stopServer() {
+    if (serverProcess) {
+        serverProcess.kill();
+        serverProcess = null;
+    }
+}
 
 ///BORRAR AL FINALIZAR QUE NO SE ME OLVIDEE
 async function updatePasswords() {
@@ -47,8 +88,20 @@ async function updatePasswords() {
 }
 
 app.whenReady().then(() => {
-    //updatePasswords(); //------------NO OLVIDAR BORRAR / SE COMENTA POR SI SE NECESITA MAS ADELANTE
+    updatePasswords() //------------NO OLVIDAR BORRAR / SE COMENTA POR SI SE NECESITA MAS ADELANTE
+    startServer(); 
     createSplashWindow();
+});
+
+app.on('window-all-closed', () => {
+    stopServer();
+    if (process.platform !== 'darwin') {
+        app.quit();
+    }
+});
+
+app.on('quit', () => {
+    stopServer();
 });
 
 function createSplashWindow() {
@@ -111,12 +164,23 @@ function createMainWindow() {
     });
     mainWindow.loadFile("index.html");
 
+    
+
     //Menu.setApplicationMenu(null);
 
     mainWindow.on("closed", () => {
         mainWindow = null;
     });
 
+    ipcMain.handle('get-server-port', () => {
+        return store.get('serverPort') || 4000; // Valor por defecto
+    });
+
+    ipcMain.on('set-server-port', (event, port) => {
+        store.set('serverPort', port);
+        console.log('Puerto guardado:', port);
+    });
+    
     ipcMain.on("abrir-crear-sucursal", () => {
         if (!crearSucursalWindow) {
             crearSucursalWindow = new BrowserWindow({
@@ -463,6 +527,19 @@ ipcMain.on('cerrar-ventana', () => {
     }
 });
 
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+    app.quit();
+} else {
+    app.on('second-instance', () => {
+        if (mainWindow) {
+            if (mainWindow.isMinimized()) mainWindow.restore();
+            mainWindow.focus();
+        }
+    });
+}
+
 ipcMain.on("login-attempt", async (event, { username, password }) => {
     try {
         const pool = await poolPromise;
@@ -497,4 +574,19 @@ ipcMain.on("login-attempt", async (event, { username, password }) => {
         console.error("Error en la autenticacion:", err);
         event.reply("login-error", "Hubo error al iniciar sesion");
     }
+});
+
+// Manejar errores de almacenamiento
+store.onDidAnyChange((newValue, oldValue) => {
+    console.log('Configuración cambiada:', newValue);
+});
+
+process.on('uncaughtException', (error) => {
+    console.error('Error no manejado:', error);
+    
+    store.set('lastError', {
+        message: error.message,
+        stack: error.stack,
+        timestamp: new Date()
+    });
 });

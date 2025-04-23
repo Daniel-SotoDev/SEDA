@@ -22,8 +22,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     closeModal.addEventListener("click", () => window.close());
 
+    const URL_SERVIDOR = "http://localhost:4000";
+
     // Obtener el puerto dinámico desde config.json
-    async function obtenerURLServidor() {
+    /*async function obtenerURLServidor() {
         try {
             const response = await fetch(window.location.origin + "/config.json");
             if (!response.ok) throw new Error("No se pudo obtener config.json");
@@ -33,7 +35,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             console.error("Error obteniendo la URL del servidor:", error);
             return "http://127.0.0.1:4000";
         }
-    }
+    } */
 
  /*   // Cargar lista de estatus de piezas
     async function cargarEstatusPiezas() {
@@ -52,8 +54,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Cargar piezas desde la base de datos
     async function cargarPiezas(filtro = "") {
         try {
-            const urlServidor = await obtenerURLServidor();
-            const response = await fetch(`${urlServidor}/obtenerPiezas?filtro=${filtro}`);
+            const response = await fetch(`${URL_SERVIDOR}/obtenerPiezas?filtro=${filtro}`);
             const piezas = await response.json();
 
             tablaPiezas.innerHTML = "";
@@ -115,8 +116,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         formData.append("Foto", document.getElementById("foto").files[0]);
 
         try {
-            const urlServidor = await obtenerURLServidor();
-            const response = await fetch(`${urlServidor}/registrarPieza`, {
+            const response = await fetch(`${URL_SERVIDOR}/registrarPieza`, {
                 method: "POST",
                 body: formData, // Envía FormData directamente
             });
@@ -150,8 +150,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     btnReportesInventario.addEventListener("click", async () => {
         try {
-            const urlServidor = await obtenerURLServidor();
-            const pdfUrl = `${urlServidor}/generar-reporte-inventario`;
+            const pdfUrl = `${URL_SERVIDOR}/generar-reporte-inventario`;
             window.open(pdfUrl, '_blank');
         } catch (error) {
             console.error("Error al generar reporte:", error);
@@ -175,8 +174,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
         try {
-            const urlServidor = await obtenerURLServidor();
-            const url = `${urlServidor}/buscarPiezaPorSKU?sku=${encodeURIComponent(sku)}`;
+            const url = `${URL_SERVIDOR}/buscarPiezaPorSKU?sku=${encodeURIComponent(sku)}`;
             console.log("URL de búsqueda:", url); // Verifica la URL aquí
 
             const response = await fetch(url);
@@ -216,8 +214,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
         try {
-            const urlServidor = await obtenerURLServidor();
-            const response = await fetch(`${urlServidor}/actualizarExistencias`, {
+            const response = await fetch(`${URL_SERVIDOR}/actualizarExistencias`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ 

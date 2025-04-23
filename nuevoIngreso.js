@@ -5,8 +5,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     const btnBuscarCotizacion = document.getElementById("btnBuscarCotizacion");
     const buscarCotizacionInput = document.getElementById("buscarCotizacion");
 
+    const URL_SERVIDOR = "http://localhost:4000";
     //FUNCIONES AUXILIARES
-    async function esperarConfigJson(reintentos = 5, intervalo = 1000) {
+    /*async function esperarConfigJson(reintentos = 5, intervalo = 1000) {
         for (let i = 0; i < reintentos; i++) {
             try {
                 const response = await fetch(window.location.origin + "/config.json");
@@ -17,9 +18,9 @@ document.addEventListener("DOMContentLoaded", async () => {
             await new Promise(resolve => setTimeout(resolve, intervalo));
         }
         throw new Error("No se pudo obtener config.json");
-    }
+    } */
 
-    async function obtenerURLServidor() {
+    /* async function obtenerURLServidor() {
         try {
             const config = await esperarConfigJson();
             return `http://127.0.0.1:${config.puerto}`;
@@ -27,11 +28,11 @@ document.addEventListener("DOMContentLoaded", async () => {
             console.error("Error obteniendo URL:", error);
             return "http://127.0.0.1:4000";
         }
-    }
+    } */
 
-    async function generarFolio(urlServidor) {
+    async function generarFolio(URL_SERVIDOR) {
         try {
-            const response = await fetch(`${urlServidor}/obtenerUltimoFolio`);
+            const response = await fetch(`${URL_SERVIDOR}/obtenerUltimoFolio`);
             if (!response.ok) throw new Error("Error HTTP: " + response.status);
             const data = await response.json();
             return data.ultimoFolio || "F-ERROR-000000";
@@ -43,11 +44,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     //INICIALIZACION
     try {
-        const urlServidor = await obtenerURLServidor();
-        folioInput.value = await generarFolio(urlServidor);
+        folioInput.value = await generarFolio(URL_SERVIDOR);
 
          // Cargar asesores
-    const response = await fetch(`${urlServidor}/obtenerAsesores`);
+    const response = await fetch(`${URL_SERVIDOR}/obtenerAsesores`);
     if (!response.ok) throw new Error("Error cargando asesores");
     const asesores = await response.json();
     
@@ -73,8 +73,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (!filtro) return;
 
         try {
-            const urlServidor = await obtenerURLServidor();
-            const response = await fetch(`${urlServidor}/buscarCotizaciones?filtro=${encodeURIComponent(filtro)}`);
+            const response = await fetch(`${URL_SERVIDOR}/buscarCotizaciones?filtro=${encodeURIComponent(filtro)}`);
             
             if (!response.ok) throw new Error("Error en respuesta del servidor");
             
@@ -119,8 +118,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             const modelo = e.target.dataset.modelo;
 
             try {
-                const urlServidor = await obtenerURLServidor();
-                const response = await fetch(`${urlServidor}/obtenerCotizacionCompleta?id=${idCotizacion}`);
+                const response = await fetch(`${URL_SERVIDOR}/obtenerCotizacionCompleta?id=${idCotizacion}`);
                 
                 if (!response.ok) throw new Error("Error obteniendo detalles");
                 
@@ -200,8 +198,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
 
         try {
-            const urlServidor = await obtenerURLServidor();
-            const response = await fetch(`${urlServidor}/guardarIngreso`, {
+            const response = await fetch(`${URL_SERVIDOR}/guardarIngreso`, {
                 method: "POST",
                 body: formData
             });
@@ -229,7 +226,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
         
         folioInput.value = "";  
-        generarFolio(obtenerURLServidor());
+        //generarFolio(obtenerURLServidor());
     }
 
     function manejarErrorEnvio(error) {

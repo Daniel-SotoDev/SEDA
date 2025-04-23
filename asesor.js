@@ -4,7 +4,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const closeBtn = document.getElementById('closeModal');
     const sucursalSelect = document.getElementById('sucursal');
     
-    async function obtenerURLServidor() {
+    const URL_SERVIDOR = "http://localhost:4000";
+    /*async function obtenerURLServidor() {
         try {
             const response = await fetch(window.location.origin + "/config.json");
             const config = await response.json();
@@ -14,7 +15,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             alert("No se pudo conectar al servidor.");
             return null;
         }
-    }
+    } */
 
     // Cargar sucursales
     await cargarSucursales();
@@ -38,8 +39,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         
         try {
-            const urlServidor = await obtenerURLServidor();
-            const response = await fetch(`${urlServidor}/registrar-asesor`, {
+            const response = await fetch(`${URL_SERVIDOR}/registrar-asesor`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -68,8 +68,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Función para cargar sucursales
     async function cargarSucursales() {
         try {
-            const urlServidor = await obtenerURLServidor();
-            const response = await fetch(`${urlServidor}/obtener-sucursales`);
+            const response = await fetch(`${URL_SERVIDOR}/obtener-sucursales`);
             const data = await response.json();
             
             if (response.ok) {
