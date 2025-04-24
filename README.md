@@ -1,5 +1,5 @@
 # SEDA - Sistema de Gestión para Taller Automotriz
-# SERVICE ENGINE DIAGNOSTIC ASSISTANT (S.E.D.A)
+### SERVICE ENGINE DIAGNOSTIC ASSISTANT (S.E.D.A)
 
 [![GitHub license](https://img.shields.io/github/license/Daniel-SotoDev/SEDA)](https://github.com/Daniel-SotoDev/SEDA/blob/main/LICENSE)
 [![Electron Version](https://img.shields.io/badge/Electron-35.2.0-blue)](https://www.electronjs.org/)
@@ -47,12 +47,14 @@ Sistema integral para la gestión de talleres automotrices especializados en tra
    cd SEDA
 
 2. **Instalar dependencias**
+   ```bash
     npm install
 
-3. **Configuracion**
+4. **Configuracion**
     Configurar conexion a SQL Server con el archivo DB QUERY.sql, crear la instancia (revisar el archivo)
 
-4. **Ejecucion**
+5. **Ejecucion**
+   ```bash
     npm start
 
 **DESPLIEGUE**
@@ -62,14 +64,13 @@ Sistema integral para la gestión de talleres automotrices especializados en tra
         npm run make
 
                             
-4.1 Se generara un instalador para Windows en la carpeta out\make\squirrel.windows\x64
-4.2 Ejecutar el archivo Setup.exe
-4.3 Una vez ejecutado ve a la carpeta C:\Users\tu usuario\AppData\Local\transmisiones_frias\app-1.0.0\resources\app
-4.4 Buscar el archivo iniciar-app.exe y ejecutalo , tiene que ser en el siguiente orden
-4.5 Primero iniciar-app.exe y ya que inicie la aplicacion ejecutar iniciar-servidor.exe 
-4.6 INICIAR-SERVIDOR.EXE NO SE DEBE DE CERRAR SOLO MINIMIZAR LA PANTALLA
-4.7 Se pueden crear accesos directos al escritorio
-
+- Se generara un instalador para Windows en la carpeta out\make\squirrel.windows\x64
+- Ejecutar el archivo Setup.exe
+- Una vez ejecutado ve a la carpeta C:\Users\tu usuario\AppData\Local\transmisiones_frias\app-1.0.0\resources\app
+- Buscar el archivo iniciar-app.exe y ejecutalo , tiene que ser en el siguiente orden
+- Primero iniciar-app.exe y ya que inicie la aplicacion ejecutar iniciar-servidor.exe 
+- INICIAR-SERVIDOR.EXE NO SE DEBE DE CERRAR SOLO MINIMIZAR LA PANTALLA
+- Se pueden crear accesos directos al escritorio
 
 
 
@@ -81,8 +82,9 @@ Sistema integral para la gestión de talleres automotrices especializados en tra
 -4GB RAM mínimo
 -500MB espacio en disco
 
+
  *Contacto:*
-# Daniel Soto - Data Analyst / Software Developer
+Daniel Soto - Data Analyst / Software Developer
 daniel.sotodev138@gmail.com
 www.linkedin.com/in/danielsotodevlp
 www.github.com/Daniel-SotoDev
