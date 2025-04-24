@@ -4,19 +4,33 @@
   "description": "Software de gestión para Transmisiones Automáticas Frías",
   "main": "main.js",
   "scripts": {
-    "start": "electron-forge start",
+    "start": "SET NODE_ENV=development && electron-forge start",
     "package": "electron-forge package",
-    "make": "electron-forge make"
+    "make": "electron-forge make",
+    "lint": "eslint ."
   },
   "config": {
     "forge": {
       "packagerConfig": {
         "icon": "./img/TF_LOGO.ico",
-        "extraFiles": [
+        "asarUnpack": [
+          "server/**",
+          "img/**",
+          "node_modules/pdfkit/**"
+        ],
+        "extraResources": [
           {
-            "from": "config.json",
-            "to": "config.json"
-          }
+            "from": "img",
+            "to": "img"
+          },
+          {
+            "from": "node_modules/pdfkit/js/data",
+            "to": "node_modules/pdfkit/js/data"
+          },
+          "config.json",
+          "iniciar-servidor.exe",
+          "iniciar-app.exe",
+          "folios.js"
         ]
       },
       "makers": [
@@ -62,6 +76,8 @@
     "@electron-forge/plugin-auto-unpack-natives": "^7.8.0",
     "@electron-forge/plugin-fuses": "^7.8.0",
     "@electron/fuses": "^1.8.0",
-    "electron": "35.2.0"
+    "electron": "^35.2.0",
+    "electron-packager": "^17.1.2",
+    "packager": "^0.1.9"
   }
 }

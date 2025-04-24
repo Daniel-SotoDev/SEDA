@@ -1,24 +1,74 @@
 const express = require("express");
+const app = express();
+const fs = require("fs");
+const path = require("path");
 const multer = require("multer");
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
-const config = require('./config');
-const obtenerUltimoFolio = require("./folios");
-const obtenerUltimoFolioCotizacion = require ("./folioscotizacion")
+const config = require(path.join(__dirname, "..", "config.json"));
+const obtenerUltimoFolio = require("../folios");
+const obtenerUltimoFolioCotizacion = require("./folioscotizacion");
 const { sql, poolPromise } = require("./db");
 const socketIo = require("socket.io");
 const http = require("http");
-const fs = require("fs");
-const path = require("path");
+
 const net = require("net");
 const PDFDocument = require('pdfkit');
 const blobStream = require('blob-stream');
+const PUERTO = 4000; // Puerto fijo
+const port = process.env.PORT || 4000;
+const server = http.createServer(app);
 
+// Configuración de rutas para el logo
+const isPackaged = require('electron').app?.isPackaged || false;
+const resourcesPath = isPackaged 
+    ? path.join(process.resourcesPath, 'app.asar.unpacked')
+    : path.join(__dirname, '..');
 
-const app = express()
+const logoPath = path.join(resourcesPath, 'img', 'TF_LOGO.png');
+
+// Verificar si el archivo de logo existe
+console.log('Ruta del logo:', logoPath);
+if (!fs.existsSync(logoPath)) {
+    console.error('Logo no encontrado en:', logoPath);
+} else {
+    console.log('Logo encontrado correctamente');
+}
+
+    function getStaticPath(relativePath) {
+        return app.isPackaged
+            ? path.join(process.resourcesPath, 'app.asar.unpacked', relativePath)
+            : path.join(__dirname, relativePath);
+}
+
+const io = socketIo(server, {
+    cors: {
+        origin: `http://localhost:${PUERTO}`,
+        methods: ["GET", "POST"]
+    }
+});
+io.on("connection", (socket) => {
+    console.log("Cliente WebSocket conectado");
+    
+    // Enviar folios iniciales al conectar
+    socket.emit("actualizarFolios", []);
+
+    socket.on("disconnect", () => {
+        console.log("Cliente WebSocket desconectado");
+    });
+});
+
+server.listen(port, () => {
+    console.log(`Servidor corriendo en puerto ${port}`);
+}).on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+        console.error(`ERROR: Puerto ${port} en uso`);
+        process.exit(1);
+    }
+});
 
 app.use(express.static(
-    process.env.NODE_ENV === 'production' 
+    isPackaged
     ? path.join(process.resourcesPath, 'app.asar.unpacked')
     : __dirname
 ));
@@ -45,32 +95,6 @@ app.get("/obtenerUltimoFolioCotizacion", async (req, res) => {
 const { ipcMain } = require('electron');
 const Store = require('electron-store');
 const store = new Store();
-
-const PUERTO = 4000; // Puerto fijo
-
-const server = http.createServer(app);
-const io = socketIo(server, {
-    cors: {
-        origin: `http://localhost:${PUERTO}`,
-        methods: ["GET", "POST"]
-    }
-});
-
-server.listen(PUERTO, () => {
-    console.log(`Servidor corriendo en http://localhost:${PUERTO}`);
-    fs.writeFileSync("config.json", JSON.stringify({ puerto: PUERTO }));
-});
-
-io.on("connection", (socket) => {
-    console.log("Cliente WebSocket conectado");
-    
-    // Enviar folios iniciales al conectar
-    socket.emit("actualizarFolios", []);
-
-    socket.on("disconnect", () => {
-        console.log("Cliente WebSocket desconectado");
-    });
-});
 
 
 // Configuración de multer para almacenamiento de memoria ()
@@ -1371,7 +1395,9 @@ app.get("/generar-pdf-diagnostico", async (req, res) => {
         // Encabezado
         doc.fillColor(primaryColor).fontSize(16).font('Helvetica-Bold')
             .text('Reporte de Diagnóstico Automotriz', 50, 40)
-            .image('./img/TF_LOGO.png', 450, 10, { width: 80 });
+            if (fs.existsSync(logoPath)) {
+                doc.image(logoPath, 450, 10, { width: 80 });
+            }
 
         // Info sucursal y folio
         doc.fontSize(9).fillColor('#7f8c8d')
@@ -1535,7 +1561,9 @@ app.get("/generar-pdf-cotizacion", async (req, res) => {
         // Encabezado
         doc.fillColor(primaryColor).fontSize(16).font('Helvetica-Bold')
             .text('Reporte de Cotización', 50, 40)
-            .image('./img/TF_LOGO.png', 450, 10, { width: 80 });
+            if (fs.existsSync(logoPath)) {
+                doc.image(logoPath, 450, 10, { width: 80 });
+            }
 
         // Info sucursal y folio
         doc.fontSize(9).fillColor('#7f8c8d')
@@ -1639,13 +1667,15 @@ app.get("/generar-pdf-entrega", async (req, res) => {
                     v.Placas, v.Marca, v.Modelo, v.Linea_Vehiculo, v.Color, v.Kilometraje,
                     a.Nombre AS AsesorNombre, a.Apellido AS AsesorApellido,
                     s.Nombre AS Sucursal, s.Direccion AS SucursalDireccion, s.Telefono AS SucursalTelefono,
-                    e.Fecha AS FechaEntrega
+                    e.Fecha AS FechaEntrega,
+                    co.Mano_Obra AS ManoObraCotizada
                 FROM Ingresos i
                 INNER JOIN Clientes c ON i.IDCliente = c.IDCliente
                 INNER JOIN Vehiculos v ON i.IDVehiculo = v.IDVehiculo
                 INNER JOIN Asesor a ON i.IDAsesor = a.IDAsesor
                 INNER JOIN Sucursales s ON a.IDSucursal = s.IDSucursal
                 LEFT JOIN Entrega e ON i.IDEntrega = e.IDEntrega
+                LEFT JOIN Cotizaciones co ON i.IDCotizacion = co.IDCotizacion
                 WHERE i.Folio = @folio
             `);
 
@@ -1680,7 +1710,9 @@ app.get("/generar-pdf-entrega", async (req, res) => {
         // Encabezado
         doc.fillColor(primaryColor).fontSize(16).font('Helvetica-Bold')
             .text('Recibo de Entrega de Vehículo', 50, 40)
-            .image('./img/TF_LOGO.png', 450, 10, { width: 80 });
+            if (fs.existsSync(logoPath)) {
+                doc.image(logoPath, 450, 10, { width: 80 });
+            }
 
         // Informacion de la sucursal
         doc.fontSize(9).fillColor('#7f8c8d')
@@ -1750,14 +1782,17 @@ app.get("/generar-pdf-entrega", async (req, res) => {
 
             // Totales
             const totalPiezas = piezas.reduce((sum, p) => sum + p.Total, 0);
+            const manoObra = ingreso.ManoObraCotizada || 0;
+            const totalFinal = totalPiezas + manoObra;
+
             doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(11)
                 .text('Total Piezas:', 350, currentY + 10)
                 .text(`$${totalPiezas.toFixed(2)}`, 460, currentY + 10)
-                .text('Total Servicio:', 350, currentY + 25)
-                .text(`$${ingreso.Total.toFixed(2)}`, 460, currentY + 25)
+                .text('Mano de Obra:', 350, currentY + 25)
+                .text(`$${manoObra.toFixed(2)}`, 460, currentY + 25)
                 .moveTo(350, currentY + 38).lineTo(550, currentY + 38).stroke()
                 .text('TOTAL GENERAL:', 350, currentY + 45)
-                .text(`$${(totalPiezas + ingreso.Total).toFixed(2)}`, 460, currentY + 45);
+                .text(`$${totalFinal.toFixed(2)}`, 460, currentY + 45);
         }
 
         // Firma de conformidad
@@ -1829,8 +1864,10 @@ app.get('/generar-reporte-ventas', async (req, res) => {
         doc.pipe(res);
 
         // Encabezado mejorado
-        doc.image('./img/TF_LOGO.png', 40, 15, { width: 60 })
-            .font('Helvetica-Bold')
+        if (fs.existsSync(logoPath)) {
+            doc.image(logoPath, 30, 15, { width: 80 });
+        }
+        doc.font('Helvetica-Bold')
             .fontSize(16)
             .fillColor('#2c3e50')
             .text('TRANSMISIONES FRÍAS', 110, 20)
@@ -2062,8 +2099,10 @@ app.get('/generar-reporte-inventario', async (req, res) => {
 
         // Cabecera
         try {
-            doc.image('./img/TF_LOGO.png', 40, 15, { width: 60 })
-                .font('Helvetica-Bold')
+            if (fs.existsSync(logoPath)) {
+                doc.image(logoPath, 490, 10, { width: 60 });
+            }
+            doc.font('Helvetica-Bold')
                 .fontSize(16)
                 .fillColor('#2c3e50')
                 .text('REPORTE DE INVENTARIO', 110, 20)

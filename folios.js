@@ -1,4 +1,4 @@
-const { poolPromise } = require("./db");
+const { poolPromise } = require("./server/db");
 
 async function obtenerUltimoFolio() {
     try {

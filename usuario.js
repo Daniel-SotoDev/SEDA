@@ -3,27 +3,34 @@ document.addEventListener("DOMContentLoaded", () => {
     const errorMsg = document.getElementById("error-msg");
     const closeModal = document.getElementById("closeModal");
 
-    // Cerrar la ventana al hacer clic en la X
     closeModal.addEventListener("click", () => {
         window.close();
     });
 
+    // Enviar datos del formulario
     form.addEventListener("submit", (e) => {
         e.preventDefault();
         const nombreUsuario = document.getElementById("nombreUsuario").value;
         const contraseña = document.getElementById("contraseña").value;
         const permisos = document.getElementById("permisos").value;
 
-        window.electron.send("guardar-usuario", { nombreUsuario, contraseña, permisos });
+        if (window.electronAPI && window.electronAPI.send) {
+            window.electronAPI.send("guardar-usuario", { nombreUsuario, contraseña, permisos });
+        } else {
+            alert("No se puede guardar porque la API no está disponible.");
+        }
     });
 
-    window.electron.receive("usuario-guardado", (message) => {
-        alert(message);
-        window.close();
-    });
+    // Escuchar respuestas del proceso principal
+    if (window.electronAPI && window.electronAPI.receive) {
+        window.electronAPI.receive("usuario-guardado", (message) => {
+            alert(message);
+            window.close();
+        });
 
-    window.electron.receive("usuario-error", (message) => {
-        errorMsg.textContent = message;
-        errorMsg.style.display = "block";
-    });
+        window.electronAPI.receive("usuario-error", (message) => {
+            errorMsg.textContent = message;
+            errorMsg.style.display = "block";
+        });
+    }
 });

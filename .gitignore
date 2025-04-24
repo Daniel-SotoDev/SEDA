@@ -8,6 +8,7 @@ out/
 
 # Logs
 *.log
+*.exe
 
 # Dotenv files
 .env

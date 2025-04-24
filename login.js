@@ -10,7 +10,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const URL_SERVIDOR = "http://localhost:4000";
 
     closeModal.addEventListener("click", () => {
-        window.electronAPI.send('close-window');
+        window.close();
     });
 
     if (!loginForm || !loginBtn) {

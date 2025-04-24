@@ -1,4 +1,4 @@
-const { poolPromise } = require("./db");
+const { sql, poolPromise } = require("./db");
 
 async function obtenerUltimoFolioCotizacion() {
     try {

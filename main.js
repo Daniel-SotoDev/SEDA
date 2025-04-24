@@ -1,4 +1,5 @@
 const { app, BrowserWindow, ipcMain, Menu } = require("electron");
+const { dialog } = require('electron');
 const { fork } = require('child_process')
 const Store  = require('electron-store');
 const store = new Store({
@@ -8,7 +9,7 @@ const store = new Store({
     }
 });
 const path = require("path");
-const { sql, poolPromise } = require("./db");
+const { sql, poolPromise } = require("./server/db");
 const bcrypt = require("bcryptjs");
 
 let mainWindow;
@@ -25,34 +26,48 @@ let asesorWindow;
 let entregaWindow;
 let splashWindow;
 let serverProcess = null;
+let reporteWindow;
 
 app.disableHardwareAcceleration();
-
+const { spawn } = require('child_process');
 function startServer() {
-    const serverPath = path.join(__dirname, 'server.js');
-    serverProcess = fork(serverPath, [], {
-        stdio: ['inherit', 'inherit', 'inherit', 'ipc'],
+    const isPackaged = app.isPackaged;
+    const serverPath = isPackaged
+        ? path.join(process.resourcesPath, "app.asar.unpacked", "server", "server.js")
+        : path.join(__dirname, "server", "server.js");
+
+    if (serverProcess) {
+        console.log("El servidor ya está en ejecución");
+        return;
+    }
+
+    console.log(" Iniciando servidor desde:", serverPath);
+
+    serverProcess = spawn(process.execPath, [serverPath], {
+        stdio: "inherit",
         env: {
             ...process.env,
-            ELECTRON_RUN_AS_NODE: '1'
+            NODE_ENV: isPackaged ? "production" : "development"
         }
     });
 
-    serverProcess.on('message', (message) => {
-        console.log('Mensaje del servidor:', message);
+    serverProcess.on("error", (err) => {
+        console.error(" Error al iniciar el servidor:", err);
     });
 
-    serverProcess.on('error', (err) => {
-        console.error('Error en el servidor:', err);
-    });
-
-    serverProcess.on('exit', (code) => {
-        console.log('Servidor cerrado con código:', code);
+    serverProcess.on("exit", (code) => {
+        console.warn(" Servidor cerrado con código:", code);
         serverProcess = null;
+        if (code === 1) {
+            const { dialog } = require('electron');
+            dialog.showErrorBox("Error", "El puerto 4000 está en uso. Cierre otras instancias de la aplicación.");
+            app.quit();
+        }
     });
 }
 
-// Funcion para detener el servidor
+
+
 function stopServer() {
     if (serverProcess) {
         serverProcess.kill();
@@ -87,7 +102,23 @@ async function updatePasswords() {
     }
 }
 
-app.whenReady().then(() => {
+const checkPort = (port) => new Promise((resolve) => {
+    const net = require('net');
+    const tester = net.createServer()
+        .once('error', () => resolve(false))
+        .once('listening', () => {
+            tester.close(() => resolve(true));
+        })
+        .listen(port);
+});
+
+app.whenReady().then(async () => {
+    const portAvailable = await checkPort(4000);
+    if (!portAvailable) {
+        dialog.showErrorBox("Error", "El puerto 4000 está siendo usado por otra aplicación");
+        app.quit();
+        return;
+    }
     updatePasswords() //------------NO OLVIDAR BORRAR / SE COMENTA POR SI SE NECESITA MAS ADELANTE
     startServer(); 
     createSplashWindow();
@@ -102,6 +133,9 @@ app.on('window-all-closed', () => {
 
 app.on('quit', () => {
     stopServer();
+    if (serverProcess) {
+        serverProcess.kill('SIGTERM');
+    }
 });
 
 function createSplashWindow() {

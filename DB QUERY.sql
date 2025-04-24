@@ -1,3 +1,5 @@
+--Crear la instancia con el nombre SEDA, posterior a ello ejecutar el query 
+
 CREATE DATABASE Transmisiones2;
 GO
 
