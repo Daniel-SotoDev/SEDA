@@ -1874,7 +1874,7 @@ app.get('/generar-reporte-ventas', async (req, res) => {
             .fontSize(10)
             .fillColor('#555555')
             .text(`Reporte: ${tipo.toUpperCase()}`, 110, 40)
-            .text(`Del ${new Date(fechaInicio).toLocaleDateString()} al ${new Date(fechaFin).toLocaleDateString()}`, 110, 55)
+            .text(`Del ${new Date(fechaInicio + 'T23:00:00Z').toLocaleDateString()} al ${new Date(fechaFin + 'T23:10:00Z').toLocaleDateString()}`, 110, 55)
             .text(`Generado por: ${usuario}`, 110, 70)
             .moveDown(2);
 
@@ -1918,7 +1918,17 @@ app.get('/generar-reporte-ventas', async (req, res) => {
             // Validar y formatear valores
             const manoObra = Number(ingreso.Mano_Obra) || 0;
             const totalPiezasIngreso = Number(ingreso.Total_Piezas) || 0;
-            const totalIngreso = Number(ingreso.Total) || 0;
+            const totalCalculado = manoObra + totalPiezasIngreso;
+            let totalIngreso = Number(ingreso.Total) || 0;
+
+            // Permitir diferencia minima
+            const diferencia = Math.abs(totalCalculado - totalIngreso);
+
+            if (diferencia <= 5) {
+                totalIngreso = totalCalculado; 
+            } else {
+                console.warn(`Diferencia detectada en folio ${ingreso.Folio}: Reportado = $${totalIngreso}, Calculado = $${totalCalculado}`);
+            }
 
             // Fondo de fila
             doc.rect(40, yPosition - 2, 520, 20).fill(rowColor);
