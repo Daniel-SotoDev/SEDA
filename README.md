@@ -22,9 +22,25 @@ Sistema integral para la gestión de talleres automotrices especializados en tra
 | **Inventario**  | Control de stock con alertas de reposición y margen de ganancia                |
 | **Reportes**    | Generación de PDF profesional para diagnósticos, cotizaciones y recibos        |
 
-##Captura de pantalla
+## VISTA PREVIA DEL SISTEMA
+<div align="center">
+   <img src="img/assets/main.png" alt="Vista previa de SEDA" width="500" style="margin: 10px;"/>
+   <img src="img/assets/reportes.png" alt="Vista previa de SEDA" width="500" style="margin: 10px;"/>
+</div>
+<div align="center">
+   <img src="img/assets/reportesemanal.png" alt="Vista previa de SEDA" width="500" style="margin: 10px;"/>
+   <img src="img/assets/cotizacion.png" alt="Vista previa de SEDA" width="500" style="margin: 10px;"/>
+</div>
+<div align="center">
+   <img src="img/assets/entrega.png" alt="Vista previa de SEDA" width="500" style="margin: 10px;"/>
+   <img src="img/assets/catalogopiezas.png" alt="Vista previa de SEDA" width="500" style="margin: 10px;"/>
+</div>
+<div align="center">
+    <img src="img/assets/diagnostico.png" alt="Vista previa de SEDA" width="500" style="margin: 10px;"/>
+    <img src="img/assets/diagnosticocampo.png" alt="Vista previa de SEDA" width="500" style="margin: 10px;"/>
+</div>
 
-img/assets/main.png
+
 
 ## Tecnologías Utilizadas
 
@@ -63,7 +79,7 @@ img/assets/main.png
 
 **DESPLIEGUE**
 
-*Para crear el ejecutable:*
+*Para crear el ejecutable*
 
         npm run make
 
