@@ -45,19 +45,14 @@ Sistema integral para la gestión de talleres automotrices especializados en tra
 ## Tecnologías Utilizadas
 
 **Frontend:**
-- Electron.js (v35.2.0)
-- HTML5, CSS3, JavaScript ES6+
+- Electron.js
+- HTML5, CSS, JavaScript
 - PDFKit (para generación de documentos)
 
 **Backend:**
-- Node.js (v18.x)
+- Node.js
 - Express.js
-- SQL Server (MSSQL)
-
-**Complementos:**
-- Socket.IO (Comunicación en tiempo real)
-- Electron Forge (Empaquetado)
-- Electron Store (Persistencia local)
+- SQL Server
 
 ## Instalación
 
