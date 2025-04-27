@@ -22,6 +22,10 @@ Sistema integral para la gestión de talleres automotrices especializados en tra
 | **Inventario**  | Control de stock con alertas de reposición y margen de ganancia                |
 | **Reportes**    | Generación de PDF profesional para diagnósticos, cotizaciones y recibos        |
 
+##Captura de pantalla
+
+img/assets/main.png
+
 ## Tecnologías Utilizadas
 
 **Frontend:**
