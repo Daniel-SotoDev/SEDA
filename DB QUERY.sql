@@ -91,8 +91,7 @@ Falla NVARCHAR(255),
 Precio_cotizacion DECIMAL (18,2),
 IDEstatus INT,
 CONSTRAINT FK_CotizacionesClientes FOREIGN KEY (IDCliente) REFERENCES Clientes (IDCliente),
-CONSTRAINT FK_CotizacionesVehiculos FOREIGN KEY (IDVehiculo) REFERENCES Vehiculos (IDVehiculo),
-CONSTRAINT FK_CotizacionesEstatusCotizacion FOREIGN KEY (IDEstatus) REFERENCES EstatusCotizacion (IDEstatus)
+CONSTRAINT FK_CotizacionesVehiculos FOREIGN KEY (IDVehiculo) REFERENCES Vehiculos (IDVehiculo)
 );
 
 CREATE TABLE Entrega(
