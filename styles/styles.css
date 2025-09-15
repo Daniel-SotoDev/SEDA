@@ -162,6 +162,23 @@ main {
 .copiar-btn:hover {
     color: #0056b3;
 }
+.whatsapp-button {
+    position: fixed;
+    bottom: 70px;
+    right: 20px;
+    z-index: 1000;
+    cursor: pointer;
+}
+.whatsapp-button .wsp {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+    transition: 0.3s ease;
+}
+.whatsapp-button .wsp:hover {
+    transform: scale(1.1);
+}
 
 /* Estilos para enlaces deshabilitados */
 .disabled {
@@ -228,7 +245,35 @@ footer {
 .close:hover {
     color: #ff4d4d; /* Rojo al hacer hover */
 }
+.close-btn {
+    background: #cf061a;
+    color: #f5f3f3;
+    border: none;
+    font-size: 14px;
+    font-weight: bold;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 15%;
+    cursor: pointer;
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
 
+.close-btn:hover {
+    background: #a71d2a;
+    transform: scale(1.05);
+}
+.menu-close{
+    z-index: -1;
+    color: transparent;
+    background-color: transparent;
+}
 /* Título del formulario */
 .modal-content h2 {
     margin-bottom: 20px;
@@ -299,3 +344,166 @@ footer {
     font-size: 14px;
     margin-top: 10px;
 }
+.modal-large {
+    width: 95%;
+    height: 95%;
+    max-width: 1200px;
+    max-height: 95vh;
+}
+#modalIframe {
+    width: 100%;
+    height: 90vh;
+    border: none;
+    border-radius: 8px;
+    background: transparent; /* Fondo blanco dentro del iframe */
+}
+
+/* Botón hamburguesa*/
+.menu-toggle {
+    display: none;
+    font-size: 28px;
+    color: #fff;
+    cursor: pointer;
+    background: none;
+    border: none;
+    margin-left: 10px;
+    z-index: 1101;
+}
+
+/* Estilos del menú lateral */
+@media (max-width: 800px) {
+    .navbar {
+        justify-content: flex-start;
+        position: relative;
+    }
+
+    .menu-toggle {
+        display: block;
+        margin-top: 10px;
+    }
+
+    .navbar ul {
+        position: fixed;
+        top: 0;
+        left: -260px;
+        width: 260px;
+        height: 100%;
+        flex-direction: column;
+        background: rgba(0, 51, 102, 0.95);
+        padding-top: 60px;
+        transition: left 0.3s ease;
+        box-shadow: 2px 0 5px rgba(0,0,0,0.3);
+        overflow-y: auto;
+        z-index: 1100;
+    }
+
+    .navbar ul.show {
+        left: 0; /* Se despliega */
+    }
+
+    .menu-close {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        font-size: 24px;
+        color: #fff;
+        background: none;
+        border: none;
+        cursor: pointer;
+        z-index: 1102;
+    }
+
+    .navbar ul li {
+        padding: 12px 20px;
+        width: 100%;
+        text-align: left;
+    }
+
+    .navbar ul li a {
+        display: block;
+        width: 100%;
+    }
+
+    .submenu .dropdown {
+        display: none;
+        position: static; /* Para que no se salga del lateral */
+        background: rgba(255,255,255,0.08);
+        margin: 8px 0 0 10px;
+        padding: 8px 0;
+        border-left: 2px solid rgba(255, 255, 255, 0.2);
+        border-radius: 6px;
+    }
+
+    .submenu.open .dropdown {
+        display: block; /* Solo si esta abierto */
+    }
+
+    .dropdown li {
+        padding: 8px 20px; 
+    }
+
+    .dropdown li a {
+        color: #eaeaea;
+    }
+}
+
+
+@media (max-width: 800px) {
+    main {
+        flex-direction: column;
+        padding: 10px;
+        margin-top: 20px;
+        margin-bottom: 20px;
+    }
+
+    .logo-container {
+        height: 100%;
+        margin-top: 30%;
+        margin-bottom: 30%;
+    }
+
+    .logo-container img {
+        max-width: 100%;
+    }
+}
+
+@media (max-width: 800px) {
+    .modal-content {
+        width: 90%;
+        margin: 20% auto;
+        padding: 20px;
+    }
+
+    .modal-large {
+        width: 95%;
+        height: 95%;
+        max-width: none;
+        max-height: none;
+        margin: auto;
+        border-radius: 8px;
+    }
+
+    #modalIframe {
+        width: 100%;
+        height: 100%;
+        border-radius: 8px;
+    }
+}
+
+@media (max-width: 800px) {
+    .close {
+        display: none; /* oculta la X clásica */
+    }
+
+    .close-btn {
+        display: flex !important;  /* siempre visible */
+        position: absolute;
+        top: 50px;
+        right: 50px;
+        width: 36px;
+        height: 36px;
+        font-size: 18px;
+        z-index: 2000; /* por encima del iframe */
+    }
+}
+

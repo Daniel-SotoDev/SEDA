@@ -18,6 +18,19 @@ const blobStream = require('blob-stream');
 const PUERTO = 4000; // Puerto fijo
 const port = process.env.PORT || 4000;
 const server = http.createServer(app);
+const os = require('os');
+
+app.use((req, res, next) => {
+    console.log("👉 Nueva petición:", req.method, req.url);
+    next();
+});
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+app.get("/login", (req, res) => {
+    res.json({ error: "Usa POST en /login" });
+});
 
 // Configuración de rutas para el logo
 const isPackaged = require('electron').app?.isPackaged || false;
@@ -43,7 +56,7 @@ if (!fs.existsSync(logoPath)) {
 
 const io = socketIo(server, {
     cors: {
-        origin: `http://localhost:${PUERTO}`,
+        origin: "*", //para cualquier origen
         methods: ["GET", "POST"]
     }
 });
@@ -58,7 +71,7 @@ io.on("connection", (socket) => {
     });
 });
 
-server.listen(port, () => {
+server.listen(port, '0.0.0.0', () => {
     console.log(`Servidor corriendo en puerto ${port}`);
 }).on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
@@ -70,10 +83,8 @@ server.listen(port, () => {
 app.use(express.static(
     isPackaged
     ? path.join(process.resourcesPath, 'app.asar.unpacked')
-    : __dirname
+    : path.join(__dirname, '..')
 ));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 app.use(cors({ origin: "*", methods: ["GET", "POST"], allowedHeaders: ["Content-Type"] }));
 app.get("/obtenerUltimoFolio", async (req, res) => {
     try {
@@ -101,6 +112,32 @@ const store = new Store();
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
+app.get("/server-info", (req, res) => {
+try {
+    const nets = os.networkInterfaces();
+    const addresses = [];
+
+    Object.keys(nets).forEach(ifname => {
+    for (const net of nets[ifname]) {
+        if (net.family === 'IPv4' && !net.internal) {
+        addresses.push(net.address);
+        }
+    }
+});
+
+    // Si no hay nada devolvemos localhost como fallback
+    if (addresses.length === 0) addresses.push('127.0.0.1');
+
+    res.json({
+    addresses, // array de IP
+    port: port
+    });
+} catch (err) {
+    console.error("Error en /server-info:", err);
+    res.json({ addresses: ['127.0.0.1'], port });
+}
+});
+
 // Ruta del login
 app.post("/login", async (req, res) => {
     const { usuario, contraseña } = req.body;
@@ -111,15 +148,15 @@ app.post("/login", async (req, res) => {
             .query("SELECT id, usuario, password, rol FROM usuarios WHERE usuario = @usuario");
 
         if (result.recordset.length === 0) {
-            return res.status(401).json({ error: "Usuario no encontrado" });
+            return res.status(401).json({ success: false, error: "Usuario no encontrado" });
         }
 
         const user = result.recordset[0];
 
         // Depuración: Verifica los valores
         console.log("Usuario encontrado:", user);
-        console.log("Contraseña recibida:", contraseña);
-        console.log("Contraseña almacenada:", user.password);
+        //console.log("Contraseña recibida:", contraseña);
+        //console.log("Contraseña almacenada:", user.password);
 
         // Verifica que la contraseña no sea undefined
         if (!user.password) {
@@ -129,10 +166,14 @@ app.post("/login", async (req, res) => {
         // Compara la contraseña
         const passwordMatch = await bcrypt.compare(contraseña, user.password);
         if (!passwordMatch) {
-            return res.status(401).json({ error: "Contraseña incorrecta" });
+            return res.status(401).json({success: false, error: "Contraseña incorrecta" });
         }
 
-        res.json({ success: true, usuario: user.usuario, rol: user.rol });
+        return res.json({ 
+            success: true, 
+            usuario: user.usuario, 
+            rol: user.rol 
+        });
     } catch (error) {
         console.error("Error en login:", error);
         res.status(500).json({ error: "Error en el servidor" });
@@ -202,7 +243,7 @@ app.post("/nuevoIngreso", (req, res) => {
 });
 
 // Ruta para guardar ingreso
-app.post("/guardarIngreso", upload.single("Fotos"), async (req, res) => {
+app.post("/guardarIngreso", upload.array("Fotos", 4), async (req, res) => {
     try {
         console.log(" Recibiendo solicitud en /guardarIngreso");
         console.log(" Datos recibidos:", req.body);
@@ -226,22 +267,34 @@ app.post("/guardarIngreso", upload.single("Fotos"), async (req, res) => {
         }
 
         const { FechaIngreso, Folio, IDCotizacion } = req.body;
-        const Fotos = req.file ? req.file.buffer : null;
+        //const Fotos = req.file ? req.file.buffer : null;
 
         const pool = await poolPromise;
-        await pool.request()
+        const result = await pool.request()
             .input("Folio", sql.NVarChar, Folio)
             .input("FechaIngreso", sql.DateTime, FechaIngreso)
             .input("IDCliente", sql.Int, IDCliente)
             .input("IDVehiculo", sql.Int, IDVehiculo)
             .input("IDAsesor", sql.Int, IDAsesor)
             .input("IDCotizacion", sql.Int, IDCotizacion || null)
-            .input("Fotos", sql.VarBinary, Fotos)
             .query(`
-                INSERT INTO Ingresos (Folio, FechaIngreso, IDCliente, IDVehiculo, IDAsesor, IDCotizacion, Fotos)
-                VALUES (@Folio, @FechaIngreso, @IDCliente, @IDVehiculo, @IDAsesor, @IDCotizacion, @Fotos)
+                INSERT INTO Ingresos (Folio, FechaIngreso, IDCliente, IDVehiculo, IDAsesor, IDCotizacion)
+                OUTPUT INSERTED.IDIngreso
+                VALUES (@Folio, @FechaIngreso, @IDCliente, @IDVehiculo, @IDAsesor, @IDCotizacion)
             `);
-                
+            
+        const IDIngreso = result.recordset[0].IDIngreso;
+
+            // Insertar cada foto en IngresoFotos
+        if (req.files && req.files.length > 0) {
+            for (const file of req.files) {
+                await pool.request()
+                    .input("IDIngreso", sql.Int, IDIngreso)
+                    .input("Foto", sql.VarBinary(sql.MAX), file.buffer)
+                    .query("INSERT INTO IngresoFotos (IDIngreso, Foto) VALUES (@IDIngreso, @Foto)");
+            }
+        }
+        
             io.emit("nuevo-folio", Folio);
         res.status(200).json({ message: "Ingreso registrado correctamente" });
     } catch (error) {
@@ -1342,6 +1395,19 @@ app.post("/registrarEntrega", async (req, res) => {
     }
 });
 
+// Función para formatear la fecha correctamente
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    // Ajustar para zona horaria local
+    const adjustedDate = new Date(date.getTime() + (date.getTimezoneOffset() * 60000));
+    
+    const day = adjustedDate.getDate().toString().padStart(2, '0');
+    const month = (adjustedDate.getMonth() + 1).toString().padStart(2, '0');
+    const year = adjustedDate.getFullYear();
+    
+    return `${day}/${month}/${year}`;
+}
+
 app.get("/generar-pdf-diagnostico", async (req, res) => {
     try {
         const { folio } = req.query;
@@ -1383,7 +1449,7 @@ app.get("/generar-pdf-diagnostico", async (req, res) => {
             `);
         const piezas = piezasResult.recordset;
 
-        const doc = new PDFDocument({ margin: 40, size: 'A4' });
+        const doc = new PDFDocument({ margin: 30, size: 'A4' });
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `inline; filename=diagnostico_${folio}.pdf`);
         doc.pipe(res);
@@ -1393,104 +1459,212 @@ app.get("/generar-pdf-diagnostico", async (req, res) => {
         const lightGrey = '#ecf0f1';
 
         // Encabezado
-        doc.fillColor(primaryColor).fontSize(16).font('Helvetica-Bold')
-            .text('Reporte de Diagnóstico Automotriz', 50, 40)
+        doc.fillColor(primaryColor).fontSize(14).font('Helvetica-Bold')
+            .text('Reporte de Diagnóstico Automotriz', 50, 30)
             if (fs.existsSync(logoPath)) {
-                doc.image(logoPath, 450, 10, { width: 80 });
+                doc.image(logoPath, 450, 15, { width: 60 });
             }
 
         // Info sucursal y folio
-        doc.fontSize(9).fillColor('#7f8c8d')
-            .text(`${diagnostico.Sucursal} | ${diagnostico.SucursalDireccion} | Tel: ${diagnostico.SucursalTelefono}`, 50, 70)
-            .fillColor(secondaryColor).fontSize(11)
-            .text(`Folio: ${folio}`, 50, 90)
-            .text(`Fecha: ${new Date(diagnostico.FechaIngreso).toLocaleDateString()}`, { align: 'right' });
+        doc.fontSize(8).fillColor('#7f8c8d')
+            .text(`${diagnostico.Sucursal} | ${diagnostico.SucursalDireccion} | Tel: ${diagnostico.SucursalTelefono}`, 50, 55)
+            .fillColor(secondaryColor).fontSize(10)
+            .text(`Folio: ${folio}`, 50, 70)
+            .text(`Fecha: ${formatDate(diagnostico.FechaIngreso)}`, { align: 'right' });
 
         // Datos Cliente y Asesor
-        doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(12)
-            .text('Cliente:', 50, 120)
-            .text('Asesor:', 300, 120);
+        doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(10)
+            .text('Cliente:', 50, 95)
+            .text('Asesor:', 300, 95);
 
-        doc.font('Helvetica').fillColor('#2c3e50').fontSize(10)
-            .text(`${diagnostico.Nombre} ${diagnostico.Apellido}`, 50, 135)
-            .text(diagnostico.Domicilio, 50, 150)
-            .text(diagnostico.Correo || 'N/A', 50, 165)
-            .text(`${diagnostico.AsesorNombre} ${diagnostico.AsesorApellido}`, 300, 135)
-            .text(`Sucursal: ${diagnostico.Sucursal}`, 300, 150);
+        doc.font('Helvetica').fillColor('#2c3e50').fontSize(9)
+            .text(`${diagnostico.Nombre} ${diagnostico.Apellido}`, 50, 110)
+            .text(diagnostico.Domicilio, 50, 125)
+            .text(diagnostico.Correo || 'N/A', 50, 140)
+            .text(`${diagnostico.AsesorNombre} ${diagnostico.AsesorApellido}`, 300, 110)
+            .text(`Sucursal: ${diagnostico.Sucursal}`, 300, 125);
 
         // Vehículo
-        doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(12)
-            .text('Vehículo:', 50, 190);
-        doc.font('Helvetica').fillColor('#2c3e50').fontSize(10)
-            .text(`Placas: ${diagnostico.Placas}`, 50, 205)
-            .text(`Marca: ${diagnostico.Marca}`, 50, 220)
-            .text(`Modelo: ${diagnostico.Modelo || diagnostico.Linea_Vehiculo}`, 50, 235)
-            .text(`Color: ${diagnostico.Color}`, 300, 205)
-            .text(`Kilometraje: ${diagnostico.Kilometraje} km`, 300, 220)
-            .text(`Testigos: ${diagnostico.Testigos || 'Ninguno'}`, 300, 235);
+        doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(10)
+            .text('Vehículo:', 50, 160);
+        doc.font('Helvetica').fillColor('#2c3e50').fontSize(9)
+            .text(`Placas: ${diagnostico.Placas}`, 50, 175)
+            .text(`Marca: ${diagnostico.Marca}`, 50, 190)
+            .text(`Modelo: ${diagnostico.Modelo || diagnostico.Linea_Vehiculo}`, 50, 205)
+            .text(`Color: ${diagnostico.Color}`, 300, 175)
+            .text(`Kilometraje: ${diagnostico.Kilometraje} km`, 300, 190)
+            .text(`Testigos: ${diagnostico.Testigos || 'Ninguno'}`, 300, 205);
 
         // Diagnostico
-        doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(12)
-            .text('Problema reportado:', 50, 265)
-            .font('Helvetica').fillColor('#2c3e50')
-            .text(diagnostico.ProblemaReportado || 'No especificado', 50, 280, { width: 500 });
+        doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(10)
+            .text('Problema reportado:', 50, 230)
+            .font('Helvetica').fillColor('#2c3e50').fontSize(9)
+            .text(diagnostico.ProblemaReportado || 'No especificado', 50, 245, { width: 500 });
 
-        doc.font('Helvetica-Bold').fillColor(primaryColor)
-            .text('Diagnóstico realizado:', 50, 310)
-            .font('Helvetica').fillColor('#2c3e50')
-            .text(diagnostico.Diagnostico || 'No especificado', 50, 325, { width: 500 });
+        doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(10)
+            .text('Diagnóstico realizado:', 50, 266)
+            .font('Helvetica').fillColor('#2c3e50').fontSize(9)
+            .text(diagnostico.Diagnostico || 'No especificado', 50, 280, { width: 500 });
 
-        // 
+        let currentY = 310;
+
         if (piezas.length > 0) {
-            doc.addPage();
+            //doc.addPage();
+            doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(12)
+                .text('Detalle de Refacciones', 50, currentY);
 
-            doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(14)
-                .text('Detalle de Refacciones', 50, 40);
-
-            const startY = 65;
-            doc.rect(50, startY, 500, 20).fill(secondaryColor);
-            doc.fontSize(10).fillColor('#ffffff').font('Helvetica-Bold')
-                .text('Descripción', 55, startY + 5)
-                .text('Cantidad', 300, startY + 5)
-                .text('P. Unitario', 380, startY + 5)
-                .text('Total', 460, startY + 5);
-
-            let currentY = startY + 25;
+            //const startY = 65;
+            doc.rect(50, currentY, 500, 15).fill(secondaryColor);
+            doc.fontSize(9).fillColor('#ffffff').font('Helvetica-Bold')
+                .text('Descripción', 55, currentY + 4)
+                .text('Cantidad', 300, currentY + 4)
+                .text('P. Unitario', 380, currentY + 4)
+                .text('Total', 460, currentY + 4);
+            currentY += 20;
+            //let currentY = startY + 25;
             piezas.forEach((pieza, i) => {
+                //forza una nueva pagina si no hay espacio
+                if (currentY > 700 && i < piezas.length - 1) {
+                    //Guarda la posicion actual en caso de que haya muchas piezas
+                    doc.addPage();
+                    currentY = 50;
+                }
                 doc.fillColor(i % 2 === 0 ? lightGrey : '#ffffff')
-                    .rect(50, currentY, 500, 18).fill();
-                doc.fillColor('#2c3e50').font('Helvetica').fontSize(9)
-                    .text(pieza.Nombre_pieza, 55, currentY + 4)
-                    .text(pieza.Cantidad_Usada, 300, currentY + 4)
+                    .rect(50, currentY, 500, 15).fill();
+                doc.fillColor('#2c3e50').font('Helvetica').fontSize(8)
+                    .text(pieza.Nombre_pieza, 55, currentY + 4, {width: 240})
+                    .text(pieza.Cantidad_Usada.toString(), 300, currentY + 4)
                     .text(`$${pieza.Precio.toFixed(2)}`, 380, currentY + 4)
                     .text(`$${pieza.Total.toFixed(2)}`, 460, currentY + 4);
-                currentY += 18;
+                currentY += 15;
             });
 
             const totalPiezas = piezas.reduce((sum, p) => sum + p.Total, 0);
             const manoObra = diagnostico.ManoObraCotizada || 0;
             const total = totalPiezas + manoObra;
 
-            doc.fillColor('#2c3e50').font('Helvetica-Bold').fontSize(10)
-                .text('Subtotal Refacciones:', 350, currentY + 10)
-                .text(`$${totalPiezas.toFixed(2)}`, 460, currentY + 10)
-                .text('Mano de Obra:', 350, currentY + 25)
-                .text(`$${manoObra.toFixed(2)}`, 460, currentY + 25)
-                .moveTo(350, currentY + 38).lineTo(550, currentY + 38).stroke()
-                .fontSize(11)
-                .text('TOTAL GENERAL:', 350, currentY + 45)
-                .text(`$${total.toFixed(2)}`, 460, currentY + 45);
-        }
+            currentY += 10;
+            doc.fillColor('#2c3e50').font('Helvetica-Bold').fontSize(9)
+                .text('Subtotal Refacciones:', 350, currentY)
+                .text(`$${totalPiezas.toFixed(2)}`, 460, currentY)
+                .text('Mano de Obra:', 350, currentY + 15)
+                .text(`$${manoObra.toFixed(2)}`, 460, currentY + 15)
+                .moveTo(350, currentY + 28).lineTo(550, currentY + 28).stroke()
+                .fontSize(10)
+                .text('TOTAL GENERAL:', 350, currentY + 35)
+                .text(`$${total.toFixed(2)}`, 460, currentY + 35);
 
+            currentY += 60;
+        } else {
+            currentY = 310;
+        }
+        
         // Firma
-        doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(12)
-            .text('Confirmación del Servicio', 50, doc.y + 30);
-        doc.font('Helvetica').fontSize(10)
-            .text('Firma del Cliente: _______________________', 50, doc.y + 20)
-            .text('Nombre y Fecha: ________________________', 50, doc.y + 15)
-            .text(`Atendido por: ${diagnostico.AsesorNombre} ${diagnostico.AsesorApellido}`, 300, doc.y - 10)
-            .text(`Sucursal: ${diagnostico.Sucursal}`, 300, doc.y + 5)
-            .text(`Fecha de Entrega: ${new Date().toLocaleDateString()}`, 300, doc.y + 20);
+        doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(10)
+            .text('Confirmación del Servicio', 50, currentY);
+        doc.font('Helvetica').fontSize(9)
+            .text('Firma del Cliente: _______________________', 50, currentY + 15)
+            .text('Nombre y Fecha: ________________________', 50, currentY + 30)
+            .text(`Atendido por: ${diagnostico.AsesorNombre} ${diagnostico.AsesorApellido}`, 300, currentY + 15)
+            .text(`Sucursal: ${diagnostico.Sucursal}`, 300, currentY + 30)
+            //.text(`Fecha de Entrega: ${new Date().toLocaleDateString()}`, 300, doc.y + 20);
+
+        // Anexos - imagenes
+// Verificar si hay imagenes en la base de datos
+const fotosResult = await pool.request()
+    .input("IDIngreso", sql.Int, diagnostico.IDIngreso)
+    .query("SELECT Foto FROM IngresoFotos WHERE IDIngreso = @IDIngreso");
+
+if (fotosResult.recordset.length > 0) {
+    // Dimensiones para hoja tamaño carta (595 x 842 puntos)
+    const pageWidth = 595;
+    const pageHeight = 842;
+    const margin = 30; 
+    
+    // Calcula dimensiones
+    const imageWidth = pageWidth - (margin * 2); // Ancho para cada imagen
+    const imageHeight = (pageHeight - (margin * 2) - 30) / 2; // Alto para cada imagen
+    
+    let currentPage = 0;
+    
+    for (let i = 0; i < fotosResult.recordset.length; i++) {
+        try {
+            const imageBuffer = Buffer.from(fotosResult.recordset[i].Foto);
+            if (imageBuffer && imageBuffer.length > 0) {
+                // Determinar posición en la página
+                const positionInPage = i % 2; // 0 = primera mitad, 1 = segunda mitad
+                
+                // Si es la primera imagen  crear nueva página
+                if (positionInPage === 0) {
+                    doc.addPage();
+                    currentPage++;
+                    doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(14)
+                        .text(`Anexos Fotográficos - Página ${currentPage}`, margin, margin);
+                }
+                
+                // Calcular coordenadas Y
+                let y;
+                if (positionInPage === 0) {
+                    // superior
+                    y = margin + 30; // Espacio para el título
+                } else {
+                    // inferior
+                    y = margin + 30 + imageHeight; // Espacio para el título
+                }
+                
+                // Convertir a base64
+                const base64Image = imageBuffer.toString('base64');
+                const dataURI = `data:image/jpeg;base64,${base64Image}`;
+                
+                // Insertar la imagen ocupando la mitad de la página
+                doc.image(dataURI, margin, y, { 
+                    width: imageWidth,
+                    height: imageHeight,
+                    align: 'center',
+                    valign: 'center'
+                });
+                
+                // Número de imagen
+                //doc.fontSize(10).fillColor('#7f8c8d')
+                //    .text(`Imagen ${i + 1}`, margin, y + imageHeight + 10, {
+                //        width: imageWidth,
+                //        align: 'center'
+                //    });
+            }
+        } catch (imageError) {
+            console.error("Error al cargar la imagen:", imageError);
+            
+            // Crear página para mostrar error si es necesario
+            if (i % 2 === 0) {
+                doc.addPage();
+                currentPage++;
+                doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(14)
+                    .text(`Anexos Fotográficos - Página ${currentPage}`, margin, margin);
+            }
+            
+            // coordenadas Y segun la posición
+            let y;
+            if (i % 2 === 0) {
+                y = margin + 30; // Mitad superior
+            } else {
+                y = margin + 30 + imageHeight; // Mitad inferior
+            }
+            
+            doc.fontSize(10).fillColor('#e74c3c')
+                .text(`Error al cargar imagen ${i + 1}`, errorX, errorY, {
+                    width: imageWidth,
+                    align: 'center'
+                });
+        }
+    }
+} else {
+    // No hay imágenes
+    doc.addPage();
+    doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(14)
+        .text('Anexos Fotográficos', 50, 40);
+    doc.fontSize(10).fillColor('#7f8c8d')
+        .text('No hay imágenes registradas para este diagnóstico.', 50, 70);
+}
 
         doc.end();
     } catch (error) {
@@ -1549,7 +1723,7 @@ app.get("/generar-pdf-cotizacion", async (req, res) => {
             `);
         const piezas = piezasResult.recordset;
 
-        const doc = new PDFDocument({ margin: 40, size: 'A4' });
+        const doc = new PDFDocument({ margin: 30, size: 'A4' });
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `inline; filename=cotizacion_${folio}.pdf`);
         doc.pipe(res);
@@ -1559,90 +1733,99 @@ app.get("/generar-pdf-cotizacion", async (req, res) => {
         const lightGrey = '#ecf0f1';
 
         // Encabezado
-        doc.fillColor(primaryColor).fontSize(16).font('Helvetica-Bold')
-            .text('Reporte de Cotización', 50, 40)
+        doc.fillColor(primaryColor).fontSize(14).font('Helvetica-Bold')
+            .text('Reporte de Cotización', 50, 30)
             if (fs.existsSync(logoPath)) {
-                doc.image(logoPath, 450, 10, { width: 80 });
+                doc.image(logoPath, 450, 15, { width: 60 });
             }
 
         // Info sucursal y folio
-        doc.fontSize(9).fillColor('#7f8c8d')
+        doc.fontSize(8).fillColor('#7f8c8d')
             //.text(`${cotizacion.Sucursal} | ${cotizacion.SucursalDireccion} | Tel: ${cotizacion.SucursalTelefono}`, 50, 70)
-            .fillColor(secondaryColor).fontSize(11)
-            .text(`Folio: ${folio}`, 50, 90)
-            .text(`Fecha: ${new Date(cotizacion.Fecha).toLocaleDateString()}`, { align: 'right' });
+            .fillColor(secondaryColor).fontSize(10)
+            .text(`Folio: ${folio}`, 50, 70)
+            .text(`Fecha: ${formatDate(cotizacion.Fecha)}`, { align: 'right' });
 
         // Datos Cliente
-        doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(12)
-            .text('Cliente:', 50, 120);
+        doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(10)
+            .text('Cliente:', 50, 95);
 
-        doc.font('Helvetica').fillColor('#2c3e50').fontSize(10)
-            .text(`${cotizacion.Nombre} ${cotizacion.Apellido}`, 50, 135)
-            .text(cotizacion.Domicilio, 50, 150)
-            .text(cotizacion.Correo || 'N/A', 50, 165);
+        doc.font('Helvetica').fillColor('#2c3e50').fontSize(9)
+            .text(`${cotizacion.Nombre} ${cotizacion.Apellido}`, 50, 110)
+            .text(cotizacion.Domicilio, 50, 125)
+            .text(cotizacion.Correo || 'N/A', 50, 140);
 
         // Vehiculo
-        doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(12)
-            .text('Vehículo:', 50, 200);
-        doc.font('Helvetica').fillColor('#2c3e50').fontSize(10)
-            .text(`Placas: ${cotizacion.Placas}`, 50, 215)
-            .text(`Marca: ${cotizacion.Marca}`, 50, 230)
-            .text(`Modelo: ${cotizacion.Modelo || cotizacion.Linea_Vehiculo}`, 50, 245)
-            .text(`Color: ${cotizacion.Color}`, 300, 215)
-            .text(`Kilometraje: ${cotizacion.Kilometraje} km`, 300, 230)
-            .text(`Testigos: ${cotizacion.Testigos || 'Ninguno'}`, 300, 245);
+        doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(10)
+            .text('Vehículo:', 50, 160);
+        doc.font('Helvetica').fillColor('#2c3e50').fontSize(9)
+            .text(`Placas: ${cotizacion.Placas}`, 50, 175)
+            .text(`Marca: ${cotizacion.Marca}`, 50, 190)
+            .text(`Modelo: ${cotizacion.Modelo || cotizacion.Linea_Vehiculo}`, 50, 205)
+            .text(`Color: ${cotizacion.Color}`, 300, 175)
+            .text(`Kilometraje: ${cotizacion.Kilometraje} km`, 300, 190)
+            .text(`Testigos: ${cotizacion.Testigos || 'Ninguno'}`, 300, 205);
 
-        // Segunda hoja con piezas
+        let currentY = 230;
+
         if (piezas.length > 0) {
-            doc.addPage();
+            //doc.addPage();
+            doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(12)
+                .text('Detalle de Refacciones', 50, currentY);
+            currentY +=20;
 
-            doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(14)
-                .text('Detalle de Refacciones', 50, 40);
-
-            const startY = 65;
-            doc.rect(50, startY, 500, 20).fill(secondaryColor);
-            doc.fontSize(10).fillColor('#ffffff').font('Helvetica-Bold')
-                .text('Descripción', 55, startY + 5)
+            //const startY = 65;
+            doc.rect(50, currentY, 500, 15).fill(secondaryColor);
+            doc.fontSize(9).fillColor('#ffffff').font('Helvetica-Bold')
+                .text('Descripción', 55, currentY + 4)
                 //.text('SKU', 55, startY + 5)
-                .text('Cantidad', 300, startY + 5)
-                .text('P. Unitario', 380, startY + 5)
-                .text('Total', 460, startY + 5);
+                .text('Cantidad', 300, currentY + 4)
+                .text('P. Unitario', 380, currentY + 4)
+                .text('Total', 460, currentY + 4);
+            currentY += 20;
 
-            let currentY = startY + 25;
             piezas.forEach((pieza, i) => {
+                  // Forzar una nueva página si no hay espacio
+                if (currentY > 700 && i < piezas.length - 1) {
+                    doc.addPage();
+                    currentY = 50;
+                }
+
                 doc.fillColor(i % 2 === 0 ? lightGrey : '#ffffff')
-                    .rect(50, currentY, 500, 18).fill();
-                doc.fillColor('#2c3e50').font('Helvetica').fontSize(9)
-                    .text(pieza.Nombre_pieza, 55, currentY + 4)
+                    .rect(50, currentY, 500, 15).fill();
+                doc.fillColor('#2c3e50').font('Helvetica').fontSize(8)
+                    .text(pieza.Nombre_pieza, 55, currentY + 4, {width: 240})
                     //.text(pieza.SKU, 55, currentY +4)
-                    .text(pieza.Cantidad_Cotizada, 300, currentY + 4)
+                    .text(pieza.Cantidad_Cotizada.toString(), 300, currentY + 4)
                     .text(`$${pieza.Precio.toFixed(2)}`, 380, currentY + 4)
                     .text(`$${pieza.Total.toFixed(2)}`, 460, currentY + 4);
-                currentY += 18;
+                currentY += 15;
             });
 
             const totalPiezas = piezas.reduce((sum, p) => sum + p.Total, 0);
             const manoObra = cotizacion.ManoObraCotizada || 0;
             const total = totalPiezas + manoObra;
 
-            doc.fillColor('#2c3e50').font('Helvetica-Bold').fontSize(10)
-                .text('Subtotal Refacciones:', 350, currentY + 10)
-                .text(`$${totalPiezas.toFixed(2)}`, 460, currentY + 10)
-                .text('Mano de Obra:', 350, currentY + 25)
-                .text(`$${manoObra.toFixed(2)}`, 460, currentY + 25)
-                .moveTo(350, currentY + 38).lineTo(550, currentY + 38).stroke()
-                .fontSize(11)
-                .text('TOTAL GENERAL:', 350, currentY + 45)
-                .text(`$${total.toFixed(2)}`, 460, currentY + 45);
+            currentY += 10;
+            doc.fillColor('#2c3e50').font('Helvetica-Bold').fontSize(9)
+                .text('Subtotal Refacciones:', 350, currentY)
+                .text(`$${totalPiezas.toFixed(2)}`, 460, currentY)
+                .text('Mano de Obra:', 350, currentY + 15)
+                .text(`$${manoObra.toFixed(2)}`, 460, currentY + 15)
+                .moveTo(350, currentY + 28).lineTo(550, currentY + 28).stroke()
+                .fontSize(10)
+                .text('TOTAL GENERAL:', 350, currentY + 35)
+                .text(`$${total.toFixed(2)}`, 460, currentY + 35);
+            currentY += 60;
         }
 
-        doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(12)
-            .text('Confirmación de Cotización', 50, doc.y + 30);
-        doc.font('Helvetica').fontSize(10)
-            .text('Firma del Cliente: _______________________', 50, doc.y + 20)
-            .text('Nombre y Fecha: ________________________', 50, doc.y + 15)
+        doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(10)
+            .text('Confirmación de Cotización', 50, currentY);
+        doc.font('Helvetica').fontSize(9)
+            .text('Firma del Cliente: _______________________', 50, currentY + 15)
+            .text('Nombre y Fecha: ________________________', 50, currentY + 30)
             //.text(`Sucursal: ${cotizacion.Sucursal}`, 300, doc.y + 5)
-            .text(`Fecha de Emisión: ${new Date().toLocaleDateString()}`, 300, doc.y + 20);
+            .text(`Fecha de Emisión: ${new Date().toLocaleDateString()}`, 300, currentY + 15);
 
         doc.end();
     } catch (error) {
@@ -1697,7 +1880,7 @@ app.get("/generar-pdf-entrega", async (req, res) => {
             `);
         const piezas = piezasResult.recordset;
 
-        const doc = new PDFDocument({ margin: 40, size: 'A4' });
+        const doc = new PDFDocument({ margin: 30, size: 'A4' });
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `inline; filename=recibo_entrega_${folio}.pdf`);
         doc.pipe(res);
@@ -1708,76 +1891,84 @@ app.get("/generar-pdf-entrega", async (req, res) => {
         const lightGrey = '#ecf0f1';
 
         // Encabezado
-        doc.fillColor(primaryColor).fontSize(16).font('Helvetica-Bold')
-            .text('Recibo de Entrega de Vehículo', 50, 40)
+        doc.fillColor(primaryColor).fontSize(14).font('Helvetica-Bold')
+            .text('Recibo de Entrega de Vehículo', 50, 30)
             if (fs.existsSync(logoPath)) {
-                doc.image(logoPath, 450, 10, { width: 80 });
+                doc.image(logoPath, 450, 15, { width: 60 });
             }
 
         // Informacion de la sucursal
-        doc.fontSize(9).fillColor('#7f8c8d')
-            .text(`${ingreso.Sucursal} | ${ingreso.SucursalDireccion} | Tel: ${ingreso.SucursalTelefono}`, 50, 70)
-            .fillColor(secondaryColor).fontSize(11)
-            .text(`Folio: ${folio}`, 50, 90)
+        doc.fontSize(8).fillColor('#7f8c8d')
+            .text(`${ingreso.Sucursal} | ${ingreso.SucursalDireccion} | Tel: ${ingreso.SucursalTelefono}`, 50, 55)
+            .fillColor(secondaryColor).fontSize(10)
+            .text(`Folio: ${folio}`, 50, 70)
             .text(`Fecha Entrega: ${new Date().toLocaleDateString()}`, { align: 'right' });
 
         // Seccion Cliente y Asesor
-        doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(12)
-            .text('Cliente:', 50, 120)
-            .text('Asesor:', 300, 120);
+        doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(10)
+            .text('Cliente:', 50, 95)
+            .text('Asesor:', 300, 95);
 
-        doc.font('Helvetica').fillColor('#2c3e50').fontSize(10)
-            .text(`${ingreso.Nombre} ${ingreso.Apellido}`, 50, 135)
-            .text(ingreso.Domicilio, 50, 150)
-            .text(ingreso.Correo || 'N/A', 50, 165)
-            .text(`${ingreso.AsesorNombre} ${ingreso.AsesorApellido}`, 300, 135)
-            .text(`Sucursal: ${ingreso.Sucursal}`, 300, 150);
+        doc.font('Helvetica').fillColor('#2c3e50').fontSize(9)
+            .text(`${ingreso.Nombre} ${ingreso.Apellido}`, 50, 110)
+            .text(ingreso.Domicilio, 50, 125)
+            .text(ingreso.Correo || 'N/A', 50, 140)
+            .text(`${ingreso.AsesorNombre} ${ingreso.AsesorApellido}`, 300, 110)
+            .text(`Sucursal: ${ingreso.Sucursal}`, 300, 125);
 
         // Detalles del Vehículo
-        doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(12)
-            .text('Vehículo:', 50, 190);
-        doc.font('Helvetica').fillColor('#2c3e50').fontSize(10)
-            .text(`Placas: ${ingreso.Placas}`, 50, 205)
-            .text(`Marca: ${ingreso.Marca}`, 50, 220)
-            .text(`Modelo: ${ingreso.Modelo}`, 50, 235)
-            .text(`Línea: ${ingreso.Linea_Vehiculo}`, 300, 205)
-            .text(`Color: ${ingreso.Color}`, 300, 220)
-            .text(`Kilometraje: ${ingreso.Kilometraje} km`, 300, 235);
+        doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(10)
+            .text('Vehículo:', 50, 160);
+        doc.font('Helvetica').fillColor('#2c3e50').fontSize(9)
+            .text(`Placas: ${ingreso.Placas}`, 50, 175)
+            .text(`Marca: ${ingreso.Marca}`, 50, 190)
+            .text(`Modelo: ${ingreso.Modelo}`, 50, 205)
+            .text(`Línea: ${ingreso.Linea_Vehiculo}`, 300, 175)
+            .text(`Color: ${ingreso.Color}`, 300, 190)
+            .text(`Kilometraje: ${ingreso.Kilometraje} km`, 300, 205);
 
         // Detalle de Servicios y Piezas
-        doc.addPage();
-        doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(14)
-            .text('Detalle del Servicio', 50, 40);
+        //doc.addPage();
+        //doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(10)
+        //    .text('Detalle del Servicio', 50, 40);
 
         // Diagnostico
-        doc.fontSize(12).fillColor(primaryColor)
-            .text('Diagnóstico Inicial Y Final:', 50, 70)
-            .font('Helvetica').fillColor('#2c3e50').fontSize(10)
-            .text(ingreso.Diagnostico || 'Sin diagnóstico especificado', 50, 85, { width: 500 });
-
+        doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(10)
+            .text('Diagnóstico Inicial Y Final:', 50, 230)
+            .font('Helvetica').fillColor('#2c3e50').fontSize(9)
+            .text(ingreso.Diagnostico || 'Sin diagnóstico especificado', 50, 245, { width: 500 });
+        
+        let currentY = 270;
         // Tabla de Piezas
         if (piezas.length > 0) {
             doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(12)
-                .text('Piezas Utilizadas:', 50, 120);
+                .text('Piezas Utilizadas:', 50, currentY);
+            currentY += 20;
 
-            const startY = 140;
-            doc.rect(50, startY, 500, 20).fill(secondaryColor);
-            doc.fontSize(10).fillColor('#ffffff').font('Helvetica-Bold')
-                .text('Descripción', 55, startY + 5)
-                .text('Cantidad', 300, startY + 5)
-                .text('P. Unitario', 380, startY + 5)
-                .text('Total', 460, startY + 5);
+            //const startY = 140;
+            doc.rect(50, currentY, 500, 15).fill(secondaryColor);
+            doc.fontSize(9).fillColor('#ffffff').font('Helvetica-Bold')
+                .text('Descripción', 55, currentY + 4)
+                .text('Cantidad', 300, currentY + 4)
+                .text('P. Unitario', 380, currentY + 4)
+                .text('Total', 460, currentY + 4);
+            currentY +=20;
 
-            let currentY = startY + 25;
+            //let currentY = startY + 25;
             piezas.forEach((pieza, i) => {
+                //continua en nueva pagina si no hay espacio
+                if (currentY > 700 && i < piezas.length - 1) {
+                    doc.addPage();
+                    currentY = 50;
+                }
                 doc.fillColor(i % 2 === 0 ? lightGrey : '#ffffff')
-                    .rect(50, currentY, 500, 18).fill();
-                doc.fillColor('#2c3e50').font('Helvetica').fontSize(9)
-                    .text(pieza.Nombre_pieza, 55, currentY + 4)
-                    .text(pieza.Cantidad_Usada, 300, currentY + 4)
+                    .rect(50, currentY, 500, 15).fill();
+                doc.fillColor('#2c3e50').font('Helvetica').fontSize(8)
+                    .text(pieza.Nombre_pieza, 55, currentY + 4, {width: 240})
+                    .text(pieza.Cantidad_Usada.toString(), 300, currentY + 4)
                     .text(`$${pieza.Precio.toFixed(2)}`, 380, currentY + 4)
                     .text(`$${pieza.Total.toFixed(2)}`, 460, currentY + 4);
-                currentY += 18;
+                currentY += 15;
             });
 
             // Totales
@@ -1785,24 +1976,157 @@ app.get("/generar-pdf-entrega", async (req, res) => {
             const manoObra = ingreso.ManoObraCotizada || 0;
             const totalFinal = totalPiezas + manoObra;
 
-            doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(11)
-                .text('Total Piezas:', 350, currentY + 10)
-                .text(`$${totalPiezas.toFixed(2)}`, 460, currentY + 10)
-                .text('Mano de Obra:', 350, currentY + 25)
-                .text(`$${manoObra.toFixed(2)}`, 460, currentY + 25)
-                .moveTo(350, currentY + 38).lineTo(550, currentY + 38).stroke()
-                .text('TOTAL GENERAL:', 350, currentY + 45)
-                .text(`$${totalFinal.toFixed(2)}`, 460, currentY + 45);
+            currentY += 10;
+            doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(9)
+                .text('Total Piezas:', 350, currentY)
+                .text(`$${totalPiezas.toFixed(2)}`, 460, currentY)
+                .text('Mano de Obra:', 350, currentY + 15)
+                .text(`$${manoObra.toFixed(2)}`, 460, currentY + 15)
+                .moveTo(350, currentY + 28).lineTo(550, currentY + 28).stroke()
+                .fontSize(10)
+                .text('TOTAL GENERAL:', 350, currentY + 35)
+                .text(`$${totalFinal.toFixed(2)}`, 460, currentY + 35);
+            currentY += 60;
         }
 
         // Firma de conformidad
-        doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(12)
-            .text('Confirmación de Entrega', 50, doc.y + 30)
-            .font('Helvetica').fontSize(10)
-            .text('Firma del Cliente: _________________________', 50, doc.y + 20)
-            .text('Nombre y Fecha: ____________________________', 50, doc.y + 35)
-            .text(`Entregado por: ${ingreso.AsesorNombre} ${ingreso.AsesorApellido}`, 300, doc.y + 20)
-            .text(`Sucursal: ${ingreso.Sucursal}`, 300, doc.y + 35);
+        doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(10)
+            .text('Confirmación de Entrega', 50, currentY);
+        doc.font('Helvetica').fontSize(9)
+            .text('Firma del Cliente: _________________________', 50, currentY + 15)
+            .text('Nombre y Fecha: ____________________________', 50, currentY + 30)
+            .text(`Entregado por: ${ingreso.AsesorNombre} ${ingreso.AsesorApellido}`, 300, currentY + 15)
+            .text(`Sucursal: ${ingreso.Sucursal}`, 300, currentY + 30);
+
+        //ANEXOS
+        const fotosResult = await pool.request()
+    .input("IDIngreso", sql.Int, ingreso.IDIngreso)
+    .query("SELECT Foto FROM IngresoFotos WHERE IDIngreso = @IDIngreso");
+
+if (fotosResult.recordset.length > 0) {
+    // Dimensiones para hoja tamaño carta (595 x 842 puntos)
+    const pageWidth = 595;
+    const pageHeight = 842;
+    const margin = 30; // Margen de la página
+    
+    // dimensiones para cada imagen 
+    const imageWidth = pageWidth - (margin * 2); // Ancho completo menos margenes
+    const imageHeight = (pageHeight - (margin * 2) - 30) / 2; // Alto para cada imagen 
+    
+    let currentPage = 0;
+    
+    for (let i = 0; i < fotosResult.recordset.length; i++) {
+        try {
+            const imageBuffer = Buffer.from(fotosResult.recordset[i].Foto);
+            if (imageBuffer && imageBuffer.length > 0) {
+                // Determinar posicion en la pagina 
+                const positionInPage = i % 2;
+                
+                // Si es la primera imagen crea nueva pagina
+                if (positionInPage === 0) {
+                    doc.addPage();
+                    currentPage++;
+                    doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(14)
+                        .text(`Anexos Fotográficos - Página ${currentPage}`, margin, margin);
+                }
+                
+                // Calcular coordenadas Y según la posición
+                let y;
+                if (positionInPage === 0) {
+                    // Mitad superior
+                    y = margin + 30; // Espacio para el título + margen superior
+                } else {
+                    // Mitad inferior
+                    y = margin + 30 + imageHeight; // Debajo de la primera imagen
+                }
+                
+                // Convertir a base64
+                const base64Image = imageBuffer.toString('base64');
+                const dataURI = `data:image/jpeg;base64,${base64Image}`;
+                
+                // Insertar la imagen ocupando la mitad de la pagina
+                doc.image(dataURI, margin, y, { 
+                    width: imageWidth,
+                    height: imageHeight,
+                    align: 'center',
+                    valign: 'center'
+                });
+                
+                // Numero de imagen
+                //doc.fontSize(10).fillColor('#7f8c8d')
+                //    .text(`Imagen ${i + 1}`, margin, y + imageHeight + 10, {
+                //        width: imageWidth,
+                //        align: 'center'
+                //    });
+            }
+        } catch (imageError) {
+            console.error("Error al cargar la imagen:", imageError);
+            
+            // Crear pagina para mostrar error si es necesario
+            if (i % 2 === 0) {
+                doc.addPage();
+                currentPage++;
+                doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(14)
+                    .text(`Anexos Fotográficos - Página ${currentPage}`, margin, margin);
+            }
+            
+            // Calcular coordenadas Y según la posición
+            let y;
+            if (i % 2 === 0) {
+                y = margin + 30; // Mitad superior
+            } else {
+                y = margin + 30 + imageHeight; // Mitad inferior
+            }
+            
+            doc.fontSize(10).fillColor('#e74c3c')
+                .text(`Error al cargar imagen ${i + 1}`, margin, y, {
+                    width: imageWidth,
+                    align: 'center'
+                });
+        }
+    }
+} else if (ingreso.Fotos) {
+    // Código para manejar la imagen individual
+    doc.addPage();
+    
+    // Titulo
+    doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(14)
+        .text('Anexos', 50, 40);
+    
+    try {
+        // Convertir el BLOB a buffer y luego a base64
+        const imageBuffer = Buffer.from(ingreso.Fotos);
+        // Verificar que el buffer no este vacio
+        if (imageBuffer && imageBuffer.length > 0) {
+            // Convertir el buffer a base64
+            const base64Image = imageBuffer.toString('base64');
+            // Crear data URI
+            const dataURI = `data:image/jpeg;base64,${base64Image}`;
+            // dimensiones
+            doc.image(dataURI, 50, 70, { 
+                width: 500, 
+                height: 300,
+                align: 'center',
+                valign: 'center'
+            });
+            
+        } else {
+            doc.fontSize(10).fillColor('#e74c3c')
+                .text('No hay imagen disponible para este servicio', 50, 70);
+        }
+    } catch (imageError) {
+        console.error("Error al cargar la imagen:", imageError);
+        doc.fontSize(10).fillColor('#e74c3c')
+            .text('Error al cargar la imagen del servicio', 50, 70);
+    }
+} else {
+    // No hay imagenes
+    doc.addPage();
+    doc.font('Helvetica-Bold').fillColor(primaryColor).fontSize(14)
+        .text('Anexos Fotográficos', 50, 40);
+    doc.fontSize(10).fillColor('#7f8c8d')
+        .text('No hay imágenes registradas para esta entrega.', 50, 70);
+}
 
         doc.end();
     } catch (error) {
@@ -2010,9 +2334,9 @@ app.get('/generar-reporte-ventas', async (req, res) => {
     .text(`${margen.toFixed(2)}%`, valueX, yPosition, { align: 'right', width: 90 });
 
         // Pie de pagina
-        doc.fontSize(8).fillColor('#777777')
+        /*doc.fontSize(8).fillColor('#777777')
             .text(`Generado el ${new Date().toLocaleDateString()} a las ${new Date().toLocaleTimeString()}`, 40, 780)
-            .text(`Sistema Transmisiones Frías v2.0`, 40, 795, { align: 'left' });
+            .text(`Sistema Transmisiones Frías v2.0`, 40, 795, { align: 'left' });*/
 
         doc.end();
     } catch (error) {

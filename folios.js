@@ -25,7 +25,7 @@ async function obtenerUltimoFolio() {
         const dia = ("0" + fecha.getDate()).slice(-2);
 
         // Formatear correctamente el nuevo folio
-        return `F-${año}${mes}${dia}-${nuevoNumero.toString().padStart(4, '0')}`;
+        return `F-${año}${mes}${dia}-${nuevoNumero.toString().padStart(6, '0')}`;
     } catch (error) {
         console.error("Error al obtener el último folio:", error);
 
@@ -34,7 +34,7 @@ async function obtenerUltimoFolio() {
         const año = fecha.getFullYear().toString().slice(-2);
         const mes = ("0" + (fecha.getMonth() + 1)).slice(-2);
         const dia = ("0" + fecha.getDate()).slice(-2);
-        return `F-${año}${mes}${dia}-0001`;
+        return `F-${año}${mes}${dia}-000001`;
     }
 }
 

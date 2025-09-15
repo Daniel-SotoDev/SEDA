@@ -147,7 +147,7 @@ select {
 }
 
 /* Responsive */
-@media (max-width: 900px) {
+@media (max-width: 800px) {
     body {
         width: 100%;
         height: auto;
@@ -162,12 +162,5 @@ select {
     
     .row {
         grid-template-columns: 1fr;
-    }
-}
-
-@media (max-height: 500px) {
-    .modal {
-        height: 480px;
-        overflow-y: auto;
     }
 }

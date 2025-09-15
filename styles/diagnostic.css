@@ -370,7 +370,7 @@ tr:hover {
 }
 
 /* Responsive */
-@media (max-width: 768px) {
+@media (max-width: 800px) {
     .row, .grid-detalles {
         flex-direction: column;
     }
@@ -395,5 +395,9 @@ tr:hover {
     
     button {
         width: 100%;
+    }
+    .close-btn{
+        background-color: transparent;
+        color: transparent;
     }
 }

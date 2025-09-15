@@ -20,8 +20,8 @@ body {
 .container {
     background: rgba(30, 58, 95, 0.85);
     width: 95%;
-    max-width: 1200px;
-    height: 95vh;
+    max-width: 1100px;
+    height: 90vh;
     padding: 20px;
     border-radius: 10px;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
@@ -237,6 +237,9 @@ select:disabled {
     background: rgba(30, 58, 95, 0.7);
 }
 
+textarea {
+    font-family: sans-serif;
+}
 /* Botones de acción */
 .btn-select {
     background: linear-gradient(to right, #51ca2c, #5fd63a);
@@ -321,10 +324,12 @@ select:disabled {
 }
 
 /* Responsive */
-@media (max-width: 900px) {
+@media (max-width: 800px) {
+
     .container {
         height: 95vh;
         padding: 15px;
+
     }
     
     .content-section {
@@ -334,7 +339,7 @@ select:disabled {
     .results-section, 
     .details-section {
         flex: none;
-        height: 45%;
+        height: 40%;
     }
     
     .details-section {
@@ -342,6 +347,14 @@ select:disabled {
     }
     
     .form-actions {
-        grid-column: span 1;
+        grid-column: span 2;
+    }
+}
+@media (max-width: 800px) {
+    .btn-close{
+        color: transparent;
+    }
+    #closeBtn{
+        background-color: transparent;
     }
 }

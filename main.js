@@ -75,6 +75,18 @@ function stopServer() {
     }
 }
 
+function getLocalIP() {
+    const interfaces = require('os').networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+        for (const interface of interfaces[name]) {
+            if (interface.family === 'IPv4' && !interface.internal) {
+                return interface.address;
+            }
+        }
+    }
+    return 'localhost';
+}
+
 ///BORRAR AL FINALIZAR QUE NO SE ME OLVIDEE
 async function updatePasswords() {
     try {

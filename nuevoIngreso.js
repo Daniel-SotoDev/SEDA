@@ -1,11 +1,38 @@
 document.addEventListener("DOMContentLoaded", async () => {
+    // Esperar a que detect-server.js termine su detección
+    if (window.serverDetectionPromise) {
+        try {
+            await window.serverDetectionPromise;
+        } catch (e) {
+            console.warn("No se detectó servidor automáticamente", e);
+        }
+    }
+
+    // Definir URL_SERVIDOR de forma segura
+    const PORT = 4000;
+    function getServerUrlSync() {
+        if (window.config && window.config.serverUrl) return window.config.serverUrl;
+        if (location.protocol.startsWith('http') && location.hostname) {
+            return `${location.protocol}//${location.hostname}:${PORT}`;
+        }
+        return `http://127.0.0.1:${PORT}`;
+    }
+    const URL_SERVIDOR = getServerUrlSync();
+
+    console.log("URL del servidor en uso:", URL_SERVIDOR);
+    
     const closeModal = document.getElementById("closeModal");
     const form = document.getElementById("ingresoForm");
     const folioInput = document.getElementById("Folio");
     const btnBuscarCotizacion = document.getElementById("btnBuscarCotizacion");
     const buscarCotizacionInput = document.getElementById("buscarCotizacion");
 
-    const URL_SERVIDOR = "http://localhost:4000";
+    /*const host = window.location.hostname || "127.0.0.1";
+    const URL_SERVIDOR = `http://${host}:4000`;*/
+
+    // Nuevo: esperar a que detect-server haya intentado configurar window.config
+
+
     //FUNCIONES AUXILIARES
     /*async function esperarConfigJson(reintentos = 5, intervalo = 1000) {
         for (let i = 0; i < reintentos; i++) {

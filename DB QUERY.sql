@@ -118,6 +118,15 @@ CONSTRAINT FK_IngresosEntrega FOREIGN KEY (IDEntrega) REFERENCES Entrega (IDEntr
 CONSTRAINT FK_IngresosCotizaciones FOREIGN KEY (IDCotizacion) REFERENCES Cotizaciones (IDCotizacion)
 );
 
+CREATE TABLE IngresoFotos (
+IDFoto INT IDENTITY(1,1) PRIMARY KEY,
+IDIngreso INT NOT NULL,
+Foto VARBINARY(MAX) NOT NULL,
+Descripcion NVARCHAR(255) NULL,  -- opcional
+FechaRegistro DATETIME DEFAULT GETDATE(),
+CONSTRAINT FK_IngresoFotos FOREIGN KEY (IDIngreso) REFERENCES Ingresos(IDIngreso)
+);
+
 CREATE TABLE DetallePiezas(
 IDDetallePieza INT IDENTITY (1,1) PRIMARY KEY NOT NULL,
 IDCotizacion INT,

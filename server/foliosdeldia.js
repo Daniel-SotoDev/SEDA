@@ -1,6 +1,28 @@
-document.addEventListener("DOMContentLoaded", () => {
-    const PUERTO = 4000;
-    const URL_SERVIDOR = `http://localhost:${PUERTO}`;
+document.addEventListener("DOMContentLoaded", async () => {
+    // Esperar a que detect-server.js termine su detección
+    if (window.serverDetectionPromise) {
+        try {
+            await window.serverDetectionPromise;
+        } catch (e) {
+            console.warn("No se detectó servidor automáticamente", e);
+        }
+    }
+
+    // Definir URL_SERVIDOR de forma segura
+    const PORT = 4000;
+    function getServerUrlSync() {
+        if (window.config && window.config.serverUrl) return window.config.serverUrl;
+        if (location.protocol.startsWith('http') && location.hostname) {
+            return `${location.protocol}//${location.hostname}:${PORT}`;
+        }
+        return `http://127.0.0.1:${PORT}`;
+    }
+    const URL_SERVIDOR = getServerUrlSync();
+
+    console.log("URL del servidor en uso:", URL_SERVIDOR);
+    //const PUERTO = 4000;
+    //const URL_SERVIDOR = window.location.origin.replace(/:\d+$/, ":4000");
+    
     const listaFolios = document.getElementById("listaFolios");
 
     const socket = io(URL_SERVIDOR, {

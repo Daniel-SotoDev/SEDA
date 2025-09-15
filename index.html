@@ -4,20 +4,27 @@
     <meta charset="UTF-8">
     <meta http-equiv="Content-Security-Policy" content="
     default-src 'self';
-    script-src 'self' 'unsafe-inline' https://cdn.socket.io;
-    style-src 'self' 'unsafe-inline';
-    img-src 'self' data:;
-    connect-src 'self' ws://localhost:* http://localhost:*;
+    script-src 'self' 'unsafe-inline' https://cdn.socket.io https://static.whatsapp.net;
+    style-src 'self' 'unsafe-inline' https://static.whatsapp.net;
+    img-src 'self' data: https:;
+    connect-src 'self' ws://localhost:* http://localhost:* http://127.0.0.1:*;
 ">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Transmisiones Automáticas Frias </title>
     <link rel="stylesheet" href="./styles/styles.css">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" href="./img/TF_LOGO.png">
     <link rel="stylesheet" href="node_modules/font-awesome/css/font-awesome.min.css">
 </head>
 <body>
+    <a href="https://wa.me/3313527362" target="_blank" class="whatsapp-button"  rel="nofollow" rel="noopener" rel="noreferrer">
+        <img class="wsp" src="./img/whatsapp-large.png" alt="Contáctanos en WhatsApp" title="Order here">
+    </a>
     <!-- Barra de navegacion -->
+    <button class="menu-toggle">☰</button>
     <nav class="navbar">
         <ul>
+            <button class="menu-close">x</button>
             <li class="submenu">
                 <a href="#" class="protected" id="opcionesMenu">Opciones</a>
                 <ul class="dropdown">
@@ -79,12 +86,75 @@
         </form>
     </div>
 </div>
-    <script src="script.js"></script>
+<div id="genericModal" class="modal">
+    <div class="modal-content modal-large">
+        <button class="close-btn" id="closeModal">X</button>
+        <iframe id="modalIframe" src="" frameborder="0"></iframe>
+    </div>
+</div>
+    <script src="detect-server.js" defer></script>
+    <script src="script.js" defer></script>
     <script src="foliosdeldia.js"></script>
     <script src="node_modules/socket.io-client/dist/socket.io.min.js"></script>
     <script>
-        const { send, receive } = window.electronAPI;
-    
+        // Detectar si estamos en Electron
+const isElectron = !!window.electronAPI;
+
+// Funcion universal para abrir ventanas/modulos
+function abrirVentana(nombreVentana, archivo) {
+    if (isElectron) {
+        // En PC  usamos send()
+        window.electronAPI.send(nombreVentana, archivo);
+    } else {
+        // En tablet abrimos directamente el archivo HTML
+        const modal = document.getElementById("genericModal");
+        const iframe = document.getElementById("modalIframe");
+
+        // Mapeo de archivos según la ventana
+        const archivos = {
+            "abrir-crear-sucursal": "sucursal.html",
+            "abrir-crear-usuario": "usuario.html",
+            "abrir-crear-asesor": "asesor.html",
+            "abrir-nuevo-cliente": "clientes.html",
+            "abrir-nuevo-vehiculo": "vehiculos.html",
+            "abrir-nuevo-ingreso": "nuevoIngreso.html",
+            "abrir-diagnosticos": "diagnosticos.html",
+            "abrir-cotizaciones": "cotizaciones.html",
+            "abrir-entrega": "entrega.html",
+            "abrir-catalogo": "catalogo.html",
+            "abrir-reporte-semanal": "reporte-semanal.html",
+            "abrir-reporte-mensual": "reporte-mensual.html",
+            "abrir-reporte-ganancias": "reporte-ganancias.html"
+        };
+
+        if (archivos[nombreVentana]) {
+            iframe.src = archivos[nombreVentana];
+            modal.style.display = "block";
+                    // Cerrar al hacer click fuera del modal
+                    window.onclick = (e) => {
+                        if (e.target === modal) {
+                            modal.style.display = "none";
+                            iframe.src = "";
+                        }
+                    };
+                } else {
+            console.warn("Ventana no definida:", nombreVentana);
+        }
+    }
+}
+
+// Función para manejar el botón de WhatsApp de forma segura
+        function setupWhatsAppButton() {
+            const whatsappButton = document.querySelector('.whatsapp-button');
+            if (whatsappButton) {
+                whatsappButton.addEventListener('click', function(e) {
+                    // Abrir WhatsApp en una nueva ventana/pestaña de forma segura
+                    window.open('https://wa.me/3313527362', '_blank', 'noopener,noreferrer');
+                    e.preventDefault();
+                });
+            }
+        }
+
     window.addEventListener("DOMContentLoaded", () => {
         // Escuchar el evento de login exitoso
         receive('login-success', (user) => {
@@ -123,6 +193,55 @@
         });
     });
     </script>
-        
+<script>
+    const menuToggle = document.querySelector('.menu-toggle');
+    const navbarMenu = document.querySelector('.navbar ul');
+    const menuClose = document.querySelector('.menu-close');
+    const submenus = document.querySelectorAll('.submenu > a');
+
+    // Abrir menu lateral
+    menuToggle.addEventListener('click', () => {
+        navbarMenu.classList.add('show');
+    });
+
+    // Cerrar menu lateral
+    menuClose.addEventListener('click', () => {
+        navbarMenu.classList.remove('show');
+        // Al cerrar, resetear todos los submenus abiertos
+        document.querySelectorAll('.submenu.open').forEach(openItem => {
+            openItem.classList.remove('open');
+        });
+    });
+
+    // Submenús desplegables en tablet
+    submenus.forEach(link => {
+        let lastTap = 0; // Guarda tiempo del ultimo tap
+
+        link.addEventListener('click', (e) => {
+            e.preventDefault(); // Evita navegación directa
+            const parent = link.parentElement;
+            const currentTime = new Date().getTime();
+            const tapInterval = currentTime - lastTap;
+
+            // Doble tap -> cerrar directamente
+            if (tapInterval < 500 && parent.classList.contains('open')) {
+                parent.classList.remove('open');
+            } else {
+                // Toggle normal
+                if (parent.classList.contains('open')) {
+                    parent.classList.remove('open');
+                } else {
+                    // Cerrar otros submenus
+                    document.querySelectorAll('.submenu.open').forEach(openItem => {
+                        openItem.classList.remove('open');
+                    });
+                    parent.classList.add('open');
+                }
+            }
+
+            lastTap = currentTime; //tiempo del ultimo tap
+        });
+    });
+</script>
 </body>
 </html>

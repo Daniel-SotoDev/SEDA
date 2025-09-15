@@ -1,7 +1,36 @@
-const { send } = window.electronAPI;
-console.log("Electron:", window.electron);
+const send = window.electronAPI?.send || function () {
+    console.warn("send() llamado fuera de electron");
+};
+console.log("Electron:", window.electron || "No disponible en navegador");
 
-const URL_SERVIDOR = "http://localhost:4000";
+let URL_SERVIDOR = null;
+document.addEventListener("DOMContentLoaded", async () => {
+/*const host = window.location.hostname || "127.0.0.1";
+const URL_SERVIDOR = `http://${host}:4000`; */
+
+// Nuevo: esperar a que detect-server haya intentado configurar window.config
+// Esperar a que detect-server.js termine su detección
+    if (window.serverDetectionPromise) {
+        try {
+            await window.serverDetectionPromise;
+        } catch (e) {
+            console.warn("No se detectó servidor automáticamente", e);
+        }
+    }
+
+    // Definir URL_SERVIDOR de forma segura
+    const PORT = 4000;
+    function getServerUrlSync() {
+        if (window.config && window.config.serverUrl) return window.config.serverUrl;
+        if (location.protocol.startsWith('http') && location.hostname) {
+            return `${location.protocol}//${location.hostname}:${PORT}`;
+        }
+        return `http://127.0.0.1:${PORT}`;
+    }
+    URL_SERVIDOR = getServerUrlSync();
+
+    console.log("URL del servidor en uso:", URL_SERVIDOR);
+});
 /*async function obtenerURLServidor() {
     try {
         const response = await fetch(window.location.origin + "/config.json");
@@ -14,17 +43,32 @@ const URL_SERVIDOR = "http://localhost:4000";
     }
 } */
 
+// Funcion auxiliar para compatibilidad en tablet
+function addTouchClickListener(element, handler) {
+    if (!element) return;
+    if ("ontouchstart" in window) {
+        element.addEventListener("touchend", (e) => {
+            e.preventDefault(); // Evita que  dispare "click"
+            handler(e);
+        });
+    } else {
+        // para pc
+        element.addEventListener("click", handler);
+    }
+}
+
 // Obtener referencias a los elementos del modal
 const loginModal = document.getElementById("loginModal");
 const loginForm = document.getElementById("loginForm");
 const closeModal = document.querySelector(".close");
+const closeGenericModal = document.getElementById("closeGenericModal");
 
-// Función para mostrar el modal de inicio de sesión
+// Funcion para mostrar el modal de inicio de sesión
 function showLoginModal() {
     loginModal.style.display = "block";
 }
 
-// Función para ocultar el modal de inicio de sesión
+// Funcion para ocultar el modal de inicio de sesión
 function hideLoginModal() {
     loginModal.style.display = "none";
 }
@@ -44,10 +88,10 @@ function checkLoginStatus() {
     opcionesProtegidas.forEach(id => {
         const boton = document.getElementById(id);
         if (boton) {
-            boton.addEventListener("click", (e) => {
+            addTouchClickListener(boton, (e) => {
                 if (rol !== "admin") {
                     e.preventDefault();
-                    alert("Acceso denegado. Solo administradores pueden acceder a esta sección.");
+                    //alert("Acceso denegado. Solo administradores pueden acceder a esta sección.");
                 }
             });
         }
@@ -56,6 +100,7 @@ function checkLoginStatus() {
     const protectedLinks = document.querySelectorAll(".protected");
     const loggedInUser = document.getElementById("loggedInUser");
     const reportesMenu = document.getElementById("reportesMenu");
+    const opciones = document.getElementById("opcionesMenu");
 
     if (isLoggedIn) {
         protectedLinks.forEach(link => {
@@ -63,7 +108,7 @@ function checkLoginStatus() {
             link.style.pointerEvents = "auto";
             link.style.opacity = "1";
         });
-        // Ocultar menú de reportes si el rol no es admin
+        // Ocultar menu de reportes si el rol no es admin
         if (rol === "admin") {
             reportesMenu.style.display = "inline-block";
         } else {
@@ -79,20 +124,59 @@ function checkLoginStatus() {
         reportesMenu.style.display = "none";
         loggedInUser.textContent = "No logeado";
     }
+    
+if (isLoggedIn) {
+        protectedLinks.forEach(link => {
+            link.classList.remove("disabled");
+            link.style.pointerEvents = "auto";
+            link.style.opacity = "1";
+        });
+        // Ocultar menu de reportes si el rol no es admin
+        if (rol === "admin") {
+            opciones.style.display = "inline-block";
+        } else {
+            opciones.style.display = "none";
+        }
+        loggedInUser.textContent = `${usuario} (${rol})`;
+    } else {
+        protectedLinks.forEach(link => {
+            link.classList.add("disabled");
+            link.style.pointerEvents = "none";
+            link.style.opacity = "0.5";
+        });
+        opciones.style.display = "none";
+        loggedInUser.textContent = "No logeado";
+    }
 }
-
-// Manejar el clic en el botón de "Iniciar Sesión"
-document.getElementById("loginBtn")?.addEventListener("click", (e) => {
+// Manejar el clic en el boton de "Iniciar Sesión"
+addTouchClickListener(document.getElementById("loginBtn"), (e) => {
     e.preventDefault(); // Evitar el comportamiento predeterminado del enlace
     loginForm.reset(); 
     showLoginModal();
 });
 
-// Manejar el clic en el botón de cerrar (×)
-closeModal?.addEventListener("click", () => {
+// Manejar el click en el boton de cerrar (×)
+addTouchClickListener(closeModal,() => {
     hideLoginModal();
     loginForm.reset();
 });
+// Cerrar con el botón global closeModal
+document.querySelectorAll("#closeModal").forEach(btn => {
+    addTouchClickListener(btn, () => {
+        // Cerrar login modal si está abierto
+        loginModal.style.display = "none";
+        loginForm?.reset();
+
+        // Cerrar generic modal si está abierto
+        const genericModal = document.getElementById("genericModal");
+        const iframe = document.getElementById("modalIframe");
+        if (genericModal && genericModal.style.display === "block") {
+            genericModal.style.display = "none";
+            if (iframe) iframe.src = "";
+        }
+    });
+});
+
 
 loginForm?.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -151,7 +235,7 @@ loginForm?.addEventListener("submit", async (e) => {
 
 
 // Manejar el clic en el botón de "Cerrar Sesión"
-document.getElementById("logoutBtn")?.addEventListener("click", (e) => {
+addTouchClickListener(document.getElementById("logoutBtn"), (e) => {
     e.preventDefault(); // Evitar el comportamiento predeterminado del enlace
 
     // Eliminar los datos del usuario de localStorage
@@ -167,68 +251,68 @@ document.getElementById("logoutBtn")?.addEventListener("click", (e) => {
 // Verificar el estado de login al cargar la página
 document.addEventListener("DOMContentLoaded", checkLoginStatus);
 // Detectar clic en el submenú de Opciones
-document.getElementById("crearSucursalBtn").addEventListener("click", () => {
-    send("abrir-crear-sucursal");
+addTouchClickListener(document.getElementById("crearSucursalBtn"), () => {
+    abrirVentana("abrir-crear-sucursal");
 });
 
 // Reportes
-document.getElementById("reporteSemanalBtn")?.addEventListener("click", (e) => {
+addTouchClickListener(document.getElementById("reporteSemanalBtn"), (e) => {
     e.preventDefault();
-    send("abrir-reporte-semanal");
+    abrirVentana("abrir-reporte-semanal");
 });
 
-document.getElementById("reporteMensualBtn")?.addEventListener("click", (e) => {
+addTouchClickListener(document.getElementById("reporteMensualBtn"), (e) => {
     e.preventDefault();
-    send("abrir-reporte-mensual");
+    abrirVentana("abrir-reporte-mensual");
 });
 
-document.getElementById("reporteGananciasBtn")?.addEventListener("click", (e) => {
+addTouchClickListener(document.getElementById("reporteGananciasBtn"), (e) => {
     e.preventDefault();
-    send("abrir-reporte-ganancias");
+    abrirVentana("abrir-reporte-ganancias");
 });
 
 // Función para cargar ventanas (si es necesaria)
 function cargarVentana(archivo) {
-    send("abrir-ventana-generica", archivo);
+    abrirVentana("abrir-ventana-generica", archivo);
 }
-document.getElementById("crearUsuarioBtn").addEventListener("click", () => {
-    send("abrir-crear-usuario");
+addTouchClickListener(document.getElementById("crearUsuarioBtn"), () => {
+    abrirVentana("abrir-crear-usuario");
 });
 //CREAR ASESORES
-document.getElementById("crearAsesorBtn").addEventListener("click", () => {
-    send("abrir-crear-asesor");
+addTouchClickListener(document.getElementById("crearAsesorBtn"), () => {
+    abrirVentana("abrir-crear-asesor");
 });
 //detecta click en el submenu de nuevo vehiculo
-document.getElementById("catalogoMenu").addEventListener("click", () => {
-    send("abrir-catalogo");
+addTouchClickListener(document.getElementById("catalogoMenu"), () => {
+    abrirVentana("abrir-catalogo");
 });
 //detecta click en el submenu de nuevo vehiculo
-document.getElementById("nuevoVehiculoBtn").addEventListener("click", () => {
-    send("abrir-nuevo-vehiculo");
+addTouchClickListener(document.getElementById("nuevoVehiculoBtn"), () => {
+    abrirVentana("abrir-nuevo-vehiculo");
 });
 //detectar click en el submenu de nuevo cliente
-document.getElementById("nuevoClienteBtn").addEventListener("click", () => {
-    send("abrir-nuevo-cliente");
+addTouchClickListener(document.getElementById("nuevoClienteBtn"), () => {
+    abrirVentana("abrir-nuevo-cliente");
 });
 // detectar el click en nuevo ingreso
-document.getElementById("nuevoIngresoBtn").addEventListener("click", () => {
-    send("abrir-nuevo-ingreso");
+addTouchClickListener(document.getElementById("nuevoIngresoBtn"), () => {
+    abrirVentana("abrir-nuevo-ingreso");
 });
 // detecta click en diagnostico
-document.getElementById("diagnosticoBtn").addEventListener("click", () => {
-    send("abrir-diagnosticos");
+addTouchClickListener(document.getElementById("diagnosticoBtn"), () => {
+    abrirVentana("abrir-diagnosticos");
 });
 //detecta click en cotizaciones
-document.getElementById("cotizacionesMenu").addEventListener("click", () => {
-    send("abrir-cotizaciones");
+addTouchClickListener(document.getElementById("cotizacionesMenu"), () => {
+    abrirVentana("abrir-cotizaciones");
 });
 //ENTREGAS 
-document.getElementById("entregaMenu").addEventListener("click", () => {
-    send("abrir-entrega");
+addTouchClickListener(document.getElementById("entregaMenu"), () => {
+    abrirVentana("abrir-entrega");
 });
 //detecta click en clientes
-document.getElementById("clientesMenu").addEventListener("click", () => {
-    send("abrir-clientes");
+addTouchClickListener(document.getElementById("clientesMenu"), () => {
+    abrirVentana("abrir-clientes");
 });
 
 

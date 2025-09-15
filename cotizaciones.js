@@ -1,4 +1,26 @@
 document.addEventListener("DOMContentLoaded", async () => {
+    // Esperar a que detect-server.js termine su detección
+    if (window.serverDetectionPromise) {
+        try {
+            await window.serverDetectionPromise;
+        } catch (e) {
+            console.warn("No se detectó servidor automáticamente", e);
+        }
+    }
+
+    // Definir URL_SERVIDOR de forma segura
+    const PORT = 4000;
+    function getServerUrlSync() {
+        if (window.config && window.config.serverUrl) return window.config.serverUrl;
+        if (location.protocol.startsWith('http') && location.hostname) {
+            return `${location.protocol}//${location.hostname}:${PORT}`;
+        }
+        return `http://127.0.0.1:${PORT}`;
+    }
+    const URL_SERVIDOR = getServerUrlSync();
+
+    console.log("URL del servidor en uso:", URL_SERVIDOR);
+    
     const closeModal = document.getElementById("closeModal");
     const form = document.getElementById("cotizacionForm");
     const buscarCliente = document.getElementById("buscarCliente");
@@ -19,7 +41,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     let vehiculoSeleccionado = null;
     let piezasSeleccionadas = [];
 
-    const URL_SERVIDOR = "http://localhost:4000";
+    function addTouchClickListener(element, handler) {
+        if (!element) return;
+        element.addEventListener("click", handler);
+        element.addEventListener("touchend", handler);
+        element.addEventListener("pointerup", handler);
+    }
+
+    /*const host = window.location.hostname || "127.0.0.1";
+    const URL_SERVIDOR = `http://${host}:4000`;*/
+    
 /*    async function obtenerURLServidor() {
         try {
             const response = await fetch(window.location.origin + "/config.json");
@@ -45,7 +76,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     }
     await generarFolio();
-    closeModal.addEventListener("click", () => window.close());
+    addTouchClickListener(closeModal, () => window.close());
 
 // Función para buscar clientes
 async function buscarClientes(filtro) {
@@ -67,12 +98,12 @@ async function buscarClientes(filtro) {
 }
 
     // Evento para buscar clientes
-    btnBuscarCliente.addEventListener("click", () => {
+    addTouchClickListener(btnBuscarCliente, () => {
         const filtro = buscarCliente.value.trim();
         if (filtro) buscarClientes(filtro);
     });
     // Seleccionar cliente
-    document.addEventListener("click", (event) => {
+    document.addEventListener("click", (event) => {                             ///////////REVISAR SI FUNCIONA
         if (event.target.classList.contains("btnSeleccionarCliente")) {
             const idCliente = event.target.getAttribute("data-id");
             const nombreCliente = event.target.parentElement.previousElementSibling.textContent;
@@ -108,7 +139,7 @@ async function buscarClientes(filtro) {
     tablaVehiculos.style.display = "table";
 }
 // Evento para buscar vehículos
-btnBuscarVehiculo.addEventListener("click", () => {
+addTouchClickListener(btnBuscarVehiculo, () => {
     const filtro = buscarVehiculo.value.trim();
     if (filtro) buscarVehiculos(filtro);
 });
@@ -163,7 +194,7 @@ cantidad.addEventListener("input", () => {
         tablaPiezas.style.display = "table";
     }
 // Evento para buscar piezas
-btnBuscarPieza.addEventListener("click", () => {
+addTouchClickListener(btnBuscarPieza, () => {
     const filtro = buscarPieza.value.trim();
     if (filtro) buscarPiezas(filtro);
 });
@@ -184,17 +215,27 @@ document.addEventListener("click", (event) => {
     }
 });
 // Agregar pieza a la lista de piezas seleccionadas
-document.getElementById("btnAgregarPieza").addEventListener("click", () => {
-    const nombrePieza = document.getElementById("nombrepieza").value;
+addTouchClickListener(document.getElementById("btnAgregarPieza"), () => {
+    const nombrePieza = document.getElementById("nombrepieza").value.trim();
     const idPieza = document.getElementById("idPiezaHidden").value;
     const cantidadPieza = parseInt(document.getElementById("cantidad").value) || 1;
-    const precioVenta = parseFloat(document.getElementById("precioUnitario").value) || 0;
+    const precioVenta = parseFloat(document.getElementById("precioUnitario").value);
     const totalPieza = (precioVenta * cantidadPieza).toFixed(2);
 
-    if (!nombrePieza || !precioVenta || !idPieza) {
-        alert("Por favor, selecciona una pieza válida antes de agregarla.");
-        return;
-    }
+    if (!nombrePieza) {
+    //alert("Debes seleccionar una pieza.");
+    return;
+}
+
+if (!idPieza || isNaN(Number(idPieza))) {
+    alert("El ID de la pieza no es válido.");
+    return;
+}
+
+if (isNaN(precioVenta)) {
+    alert("El precio unitario no es válido.");
+    return;
+}
 
     // Agregar la pieza a la lista de piezas seleccionadas
     piezasSeleccionadas.push({
@@ -239,7 +280,7 @@ function actualizarTablaPiezasSeleccionadas() {
         piezasSeleccionadas.length > 0 ? "table" : "none";
 }
  // Eliminar pieza seleccionada
-document.addEventListener("click", (event) => {
+addTouchClickListener(document, (event) => {
     if (event.target.classList.contains("btnEliminarPieza")) {
         const idPieza = event.target.getAttribute("data-id");
         piezasSeleccionadas = piezasSeleccionadas.filter(pieza => pieza.idPieza !== idPieza);
@@ -347,7 +388,7 @@ async function cargarPiezasVehiculo(IDVehiculo) {
     }
 }
 
-document.getElementById('btnPDF').addEventListener('click', async () => {
+addTouchClickListener(document.getElementById('btnPDF'), async () => {
     try {
         const folio = document.getElementById('folio').value;
         console.log('Intentando generar PDF para folio:', folio);

@@ -319,3 +319,24 @@ input[type="file"]::file-selector-button:hover {
         grid-template-columns: 1fr;
     }
 }
+@media (max-width: 800px) {
+    body {
+        width: 100%;
+        height: auto;
+        padding: 20px;
+    }
+    
+    .modal {
+        width: 95%;
+        height: auto;
+        max-height: 90vh;
+    }
+    
+    .row {
+        grid-template-columns: 1fr;
+    }
+    .close-btn{
+        background-color: transparent;
+        color: transparent;
+    }
+}

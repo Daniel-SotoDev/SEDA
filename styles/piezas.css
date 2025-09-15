@@ -271,7 +271,7 @@ img:hover {
     to { opacity: 1; }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 800px) {
     .container {
         width: 95%;
         padding: 15px;
@@ -293,5 +293,14 @@ img:hover {
     input[type="text"] {
         width: 100%;
         margin-bottom: 10px;
+    }
+}
+@media (max-width: 800px) {
+    .close-btn{
+        background-color: transparent;
+        color: transparent;
+    }
+    .close-btn:hover{
+        background-color: transparent;
     }
 }
